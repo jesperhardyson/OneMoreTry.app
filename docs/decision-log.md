@@ -154,6 +154,68 @@ De är genuint komplementära, inte omskinnade versioner av varandra:
 
 ---
 
+# Femte passet — identiteten (2026-09-13)
+
+Portalerna är nu kopplade till appen: generering med säkerhetszon i `GameModel`, portalband
+med lägesbärande sparrar i `ContentView`, kvintstaplad portalröst i `Audio`, dubbeltransient
+i `Haptics`, palett och figurfärg per läge. Verifierat på enhet.
+
+Och därmed kom frågan som passet egentligen handlar om: **spelet kändes som en kopia av
+Geometry Dash.** Det gjorde det med rätta.
+
+### Diagnosen
+
+Det som läser som Geometry Dash är inte *vilka* lägen som finns, utan **arkitekturen**: en
+bana som byter styrmekanik vid portaler. Gravitationsvändningen är dessutom Gravity Guy och
+VVVVVV; impulsläget är Flappy Bird. Ingen av mekanikerna är vår.
+
+Det som faktiskt är vårt — blandaren efter den fasta öppningen, det maskinverifierade
+rättvisegolvet, klarande genom att överleva 60 s av oändlighet — är **osynligt under de
+första 30 sekunderna**, alltså precis när en spelare avgör om spelet är en kopia.
+
+### Beslutet
+
+Differentieringen flyttas till presentationen, och ett tredje läge läggs till som ger
+tier 5–6 en ny färdighet i stället för snävare marginaler:
+
+1. **Perspektivkorridor för hela spelet.** Pixel art i pseudo-3D, ankrat i F-Zero och
+   Star Fox. Offscreen-targeten i spec §10 gör det möjligt — 3D:n rastreras *in i* den
+   lågupplösta bufferten, så perspektivet kvantiseras till pixelrutnätet av sig självt.
+2. **Ett tredje läge: tuben.** Kanalen böjd till en cirkel. `y → theta` i kvartsvarv,
+   `gravity: Sign → downWall: UInt8`. Radien finns aldrig i simuleringen, så inga
+   transcendentaler och determinismen är orörd.
+
+Två ansatser förkastades på vägen: att **rulla kameran 90°** i kanalen (rotationen bär
+information, så en reduce-motion-grind hade gett två olika svårighetsgrader) och att göra
+**dimensionsbytet till hela spelet** (en fjärde ansats, inte utredd — den står som
+icke-mål, inte som förkastad).
+
+### Rättat under passet
+
+- Jag hävdade först att 3D bryter one-tap och determinismen. Fel. Med 1 frihetsgrad och
+  kollision i väggindexrymd överlever bägge; kostnaden ligger i renderaren och
+  innehållspoolen.
+- Jag beslutade **hårt snitt** vid kameraramsbyte med ett latensargument lånat från
+  förkastandet av charge-and-release. Det argumentet handlade om *input*, inte om kamera.
+  Svepet är tillåtet: känd varaktighet, säkerhetszonen växer med det, simuleringen pausar
+  aldrig, input sväljs aldrig, och kameran drivs av `state.step − modeChangedStep` så den
+  aldrig hamnar i `SimState`.
+
+### Konsekvens som redan syns i koden
+
+`guardZone(for:)` har fått sin betydelse: **`after` är budgeten för visuell
+återanskaffning.** Validatorn kan mäta `robustnessMs`, men inte hur lång tid en människa
+behöver för att läsa om en ny kameraram. Zonen är därför asymmetrisk och per lägesövergång,
+inte en konstant — och den står medvetet kvar som TODO till grinden har mätt den.
+
+Observerat i prototypen: vid portalperiod 0,7 s slukade zonerna hela banan och **inga
+hinder genererades alls**. Inte en bugg, men trimpanelen behöver visa antalet genererade
+hinder, annars körs grinden på en tom bana utan att någon märker det.
+
+Allt detta ligger i `docs/superpowers/specs/2026-09-13-three-modes-and-perspective-design.md`.
+
+---
+
 # Läge just nu (2026-09-13, sessionsslut)
 
 ## Klart och pushat
@@ -161,21 +223,28 @@ De är genuint komplementära, inte omskinnade versioner av varandra:
 - `OMTCore`: kinematik, svept AABB, händelser, near-miss, dödsorsak, impulsläge,
   variabel hopphöjd (Mario-kapning), portaler. **19 tester gröna**, körs headless på mac.
 - App: M1-prototyp med Canvas, procedurella hinder, trim-panel med reglage, syntetiserat
-  ljud och haptik, press/release. Kör på iPhone 17 Pro.
-- Spec och beslutslogg uppdaterade till och med variabel hopphöjd.
+  ljud och haptik, press/release, **portaler helt kopplade** — generering med säkerhetszon,
+  lägesbärande sparrar, portalröst, dubbeltransient, palett per läge. Kör på iPhone 17 Pro.
+- Spec och beslutslogg uppdaterade till och med femte passet.
+- Ny spec: `docs/superpowers/specs/2026-09-13-three-modes-and-perspective-design.md`.
+  Godkänd i brainstorm, **inte byggd**, ingen implementationsplan skriven än.
 
 ## Nästa steg, i ordning
 
-1. **Koppla portaler till appen** — de finns i kärnan men inget genererar, ritar eller
-   ljudsätter dem än. Behövs: generering i `GameModel.generateAhead()`, ritning i
-   `ContentView.draw`, och `.modeChanged` i `Feedback` (eget ljud, egen palett, egen
-   figurfärg — se lägesförvirringsrisken ovan).
-2. **Uppdatera spec §0 och §1** — "gravitationsvänd" är inte längre ett låst beslut utan
-   halva spelet. Portaler behöver ett eget avsnitt.
+1. **Kör den riktiga grinden** — tre icke-byggare, 30 försök frivilligt, en återvänder
+   nästa dag utan att bli tillfrågad. Fortfarande inte körd, och den **grindar allt i den
+   nya specen**: `CLAUDE.md` säger att inget som skulle kastas byggs innan den är passerad,
+   och den nya specen fördubblar konstpipelinen. Inget i specen behövs för att grinda —
+   portaler och variabel hopphöjd finns redan på enhet.
+2. **Visa antalet genererade hinder i trimpanelen** — annars kan grinden köras på en tom
+   bana. Se femte passet.
 3. **Trimma `impulseCutFraction`** — står på 0,35 som gissning. Fönstret för ett "kort"
    tryck är ~70 ms, vilket kan vara snävare än hur länge en människa faktiskt håller.
-4. **Kör den riktiga grinden** — tre icke-byggare, 30 försök frivilligt, en återvänder
-   nästa dag. Den är fortfarande inte körd.
+4. **Skriv implementationsplanerna** för den nya specen — fyra oberoende leveranser, var
+   sin plan, i ordningen i specens §12. Först efter grinden.
+5. **Skriv in undantaget i `CLAUDE.md`** — snappningsregeln för spritepositioner kan inte
+   gälla geometri i perspektiv. Se specens §6. Inte gjort; kräver ett beslut om att ändra
+   arbetsreglerna.
 
 ## Kommandon
 
