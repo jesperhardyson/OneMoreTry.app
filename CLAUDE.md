@@ -40,8 +40,17 @@ sönder tyst.
   en analog axel, så en input är ett *par* av stegindex. Samma klampningsregel gäller
   båda. En replay som bara lagrar nedtryck kan inte reproduceras.
 
-Determinismgrinden i CI kör samma test i `-c debug` och `-c release`. Fyrar den: sluta och
+Determinismgrinden kör samma test i `-c debug` och `-c release`. Fyrar den: sluta och
 hitta orsaken, höj inte toleransen.
+
+```bash
+swift test --package-path Packages/OMTKit
+swift test --package-path Packages/OMTKit -c release -Xswiftc -enable-testing
+```
+
+`-enable-testing` behövs för `@testable import` och slår **inte** av optimeringarna — den
+emitterar bara internal-symboler, så release-körningen testar fortfarande optimerad kod.
+Det är hela poängen med grinden.
 
 ## Input
 
@@ -119,3 +128,25 @@ Kärnloopen är snabb död → blixt → omstart vid 120 Hz. Det är en anfallsr
 Fun-grinden ligger på dag 3, inte i slutet. Innan den är passerad: bygg inget som skulle
 kastas om mekaniken visar sig tråkig. Testet för varje sak du överväger att bygga är
 exakt det.
+
+## Repo och release
+
+- **`OneMoreTry.xcodeproj` genereras och committas aldrig.** Kör `Scripts/bootstrap.sh`
+  efter klon och efter att du lagt till filer i `App/`. `project.pbxproj` ger en
+  merge-konflikt i varje PR som rör en fil, vilket ett PR-baserat flöde inte tål.
+- **Arbete går via pull request.** `main` är skyddad. PR:ar squash-mergas, så **PR-titeln
+  blir commit-meddelandet** — det är den som måste följa konventionen, inte varje
+  grencommit.
+- **Commits följer Conventional Commits.** `feat:`, `fix:`, `docs:`, `chore:`, `style:`,
+  `ci:`. Versionen och `CHANGELOG.md` härleds ur dem av release-please; ett slarvigt
+  prefix ger fel version.
+- **Releaser går via release-PR.** release-please håller en `chore(main): release X.Y.Z`
+  öppen; merge av den taggar och levererar. Versionen bumpas aldrig för hand —
+  `version.txt` är sanningen och skrivs av release-please.
+- **Dokumentation på svenska, kod och commits på engelska.**
+- `swiftformat --lint .` och `swiftlint --strict` ska gå rena innan PR. Configen ligger i
+  `.swiftformat` och `.swiftlint.yml`; höj inte en tröskel utan att skriva varför i
+  configen.
+
+Detaljerna, inklusive Apple-leveransen, står i
+`docs/superpowers/specs/2026-09-13-release-pipeline-design.md`.

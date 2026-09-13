@@ -1,11 +1,14 @@
-// OMTCore — simulering. Importerar ingenting. Se CLAUDE.md.
-
 /// Gravitationens riktning. Binart tillstand — det ar hela poangen med mekaniken.
 public enum Sign: Sendable {
     case down, up
 
-    public var flipped: Sign { self == .down ? .up : .down }
-    var acceleration: Double { self == .down ? -1 : 1 }
+    public var flipped: Sign {
+        self == .down ? .up : .down
+    }
+
+    var acceleration: Double {
+        self == .down ? -1 : 1
+    }
 }
 
 /// Vad ett tap gor. Se docs/decision-log.md 2026-09-13.
@@ -45,7 +48,7 @@ public struct Tuning: Sendable {
         flipFootprint: Double,
         mode: ControlMode = .gravityFlip,
         impulseFraction: Double = 0.5,
-        impulseCutFraction: Double = 0.35
+        impulseCutFraction: Double = 0.35,
     ) {
         self.channelHeight = channelHeight
         self.characterHeight = characterHeight
@@ -58,7 +61,9 @@ public struct Tuning: Sendable {
     }
 
     /// Avstandet figurens centrum faktiskt kan rora sig mellan ytorna.
-    public var usableHeight: Double { channelHeight - characterHeight }
+    public var usableHeight: Double {
+        channelHeight - characterHeight
+    }
 
     /// Harledd sa att en korsning fran vila tar exakt `flipDuration`:
     /// h = 1/2 * g * t^2  =>  g = 2h/t^2
@@ -66,9 +71,17 @@ public struct Tuning: Sendable {
         2 * usableHeight / (flipDuration * flipDuration)
     }
 
-    public var floorY: Double { characterHeight / 2 }
-    public var ceilingY: Double { channelHeight - characterHeight / 2 }
-    public var scrollSpeed: Double { flipFootprint * channelHeight / flipDuration }
+    public var floorY: Double {
+        characterHeight / 2
+    }
+
+    public var ceilingY: Double {
+        channelHeight - characterHeight / 2
+    }
+
+    public var scrollSpeed: Double {
+        flipFootprint * channelHeight / flipDuration
+    }
 
     /// `squareRoot()` ar stdlib och korrekt avrundad. Fria `sqrt()` kommer fran
     /// Foundation, som OMTCore inte far importera. Se CLAUDE.md.
@@ -76,10 +89,14 @@ public struct Tuning: Sendable {
         impulseFraction * (2 * gravityMagnitude * usableHeight).squareRoot()
     }
 
-    public var impulseCutSpeed: Double { impulseSpeed * impulseCutFraction }
+    public var impulseCutSpeed: Double {
+        impulseSpeed * impulseCutFraction
+    }
 
     /// Vertikal marginal under vilken en passage raknas som en near-miss.
-    public var nearMissClearance: Double { usableHeight * 0.10 }
+    public var nearMissClearance: Double {
+        usableHeight * 0.10
+    }
 
     /// Validerad genom spel pa enhet 2026-09-13. Se docs/decision-log.md.
     public static let reference = Tuning(
@@ -87,7 +104,7 @@ public struct Tuning: Sendable {
         characterHeight: 20,
         characterWidth: 16,
         flipDuration: 0.22,
-        flipFootprint: 1.5
+        flipFootprint: 1.5,
     )
 }
 
@@ -104,7 +121,7 @@ public struct SimState: Sendable {
 
     public init(
         step: UInt32, x: Double, y: Double, vy: Double,
-        gravity: Sign, alive: Bool, mode: ControlMode = .gravityFlip
+        gravity: Sign, alive: Bool, mode: ControlMode = .gravityFlip,
     ) {
         self.step = step
         self.x = x
@@ -118,7 +135,7 @@ public struct SimState: Sendable {
     public static func initial(tuning: Tuning) -> SimState {
         SimState(
             step: 0, x: 0, y: tuning.floorY, vy: 0,
-            gravity: .down, alive: true, mode: tuning.mode
+            gravity: .down, alive: true, mode: tuning.mode,
         )
     }
 }
@@ -133,7 +150,7 @@ public enum Simulator {
         flip: Bool,
         holding: Bool = false,
         obstacles: [Obstacle] = [],
-        portals: [Portal] = []
+        portals: [Portal] = [],
     ) -> StepResult {
         var s = state
         guard s.alive else { return StepResult(state: s, events: []) }
@@ -180,7 +197,9 @@ public enum Simulator {
             s.mode = portal.mode
             // Impulslaget forutsatter gravitation nedat. Utan det skulle ett tap
             // gora motsatsen till vad spelaren forvantar sig direkt efter bytet.
-            if portal.mode == .impulse { s.gravity = .down }
+            if portal.mode == .impulse {
+                s.gravity = .down
+            }
             events.append(.modeChanged(step: s.step, mode: portal.mode))
         }
 
@@ -198,8 +217,8 @@ public enum Simulator {
                 events.append(
                     .died(
                         step: s.step,
-                        cause: obstacle.surface == .floor ? .floorObstacle : .ceilingObstacle
-                    )
+                        cause: obstacle.surface == .floor ? .floorObstacle : .ceilingObstacle,
+                    ),
                 )
                 return StepResult(state: s, events: events)
             }

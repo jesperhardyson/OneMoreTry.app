@@ -1,5 +1,3 @@
-// OMTCore — handelser. Importerar ingenting. Se CLAUDE.md.
-
 /// Vad som dodade dig. Tre olika dodsreaktioner ar *diagnostik*, inte charm:
 /// "du slog i taket" och "du missade flippen" ar olika lardomar, och att
 /// kommunicera vilken pa 100 ms ar vad som sanker retry-kostnaden. Se spec \u{a7}8.

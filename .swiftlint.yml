@@ -1,0 +1,61 @@
+included:
+  - App
+  - Packages/OMTKit/Sources
+  - Packages/OMTKit/Tests
+excluded:
+  - .build
+  - Packages/*/.build
+opt_in_rules:
+  - array_init
+  - closure_spacing
+  - contains_over_filter_count
+  - empty_count
+  - explicit_init
+  - first_where
+  - joined_default_parameter
+  - redundant_nil_coalescing
+  - sorted_first_last
+  - toggle_bool
+  - unneeded_parentheses_in_closure_argument
+  - vertical_whitespace_closing_braces
+disabled_rules:
+  - todo
+  - trailing_comma
+line_length:
+  warning: 140
+  error: 200
+  ignores_comments: true
+  ignores_urls: true
+identifier_name:
+  min_length:
+    warning: 1
+  max_length:
+    warning: 50
+  # T is the inter-tap interval in A = h*T^2/(2*t_f^2). The test reads against
+  # the formula in the design spec; renaming it to t collides with the Tuning
+  # value already called t in those tests.
+  excluded:
+    - T
+# Sweep.hits takes the full swept-AABB problem and drawPortal takes the
+# projection closures. Both are cohesive argument lists, not god functions.
+function_parameter_count:
+  warning: 8
+  error: 10
+# (time, intensity, sharpness) is one haptic event, not three loose values.
+large_tuple:
+  warning: 3
+  error: 4
+type_body_length:
+  warning: 400
+  error: 600
+file_length:
+  warning: 600
+  error: 900
+function_body_length:
+  warning: 80
+  error: 120
+nesting:
+  type_level: 3
+cyclomatic_complexity:
+  warning: 25
+  error: 40

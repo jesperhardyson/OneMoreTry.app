@@ -1,5 +1,3 @@
-// OMTCore — kollision. Importerar ingenting. Se CLAUDE.md.
-
 /// Vilken yta ett hinder vaxer ur. Allt farligt sitter fast i golv eller tak,
 /// aldrig svavande — det haller spelarens fraga binar. Se spec \u{a7}0.
 public enum Surface: Sendable {
@@ -50,7 +48,7 @@ enum Sweep {
     static func hits(
         box: AABB,
         fromX x0: Double, fromY y0: Double,
-        toX x1: Double, toY y1: Double
+        toX x1: Double, toY y1: Double,
     ) -> Bool {
         let dx = x1 - x0
         let dy = y1 - y0
@@ -68,7 +66,7 @@ enum Sweep {
 
     private static func slab(
         origin: Double, delta: Double, lo: Double, hi: Double,
-        _ tMin: inout Double, _ tMax: inout Double
+        _ tMin: inout Double, _ tMax: inout Double,
     ) -> Bool {
         if delta == 0 {
             // Parallell med slaben: traff bara om vi redan ligger innanfor.
@@ -77,13 +75,14 @@ enum Sweep {
         let inv = 1 / delta
         var t1 = (lo - origin) * inv
         var t2 = (hi - origin) * inv
-        if t1 > t2 { swap(&t1, &t2) }
+        if t1 > t2 {
+            swap(&t1, &t2)
+        }
         tMin = max(tMin, t1)
         tMax = min(tMax, t2)
         return tMin <= tMax
     }
 }
-
 
 /// En punkt dar mekaniken byter. Geometry Dash-modellen: bytet ar sjalv den
 /// svaraste fardigheten, och det ger 60-sekunderskorningen en dramatisk form
