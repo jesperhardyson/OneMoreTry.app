@@ -36,3 +36,42 @@ rimligt *startvärde*, inte ett godkänt grindpass.
   att snabb alternerande tapping känns bra och hittas utan att läras ut. Inte prövat.
 - Ljud och haptik saknas fortfarande. Enligt granskningen är takt-kvantisering högsta
   känsla-per-timme i designen, så bedömningen ovan är gjord utan halva känslan.
+
+---
+
+## 2026-09-13 — Svävandet bär inte (M2, andra passet)
+
+Ljud och haptik tillagda, sedan testat på enhet. Ljud och haptik fungerar.
+**Svävandet är för dyrt:** "kräver väldigt många klick för att hålla den svävande."
+
+### Vad mätningen säger
+
+Att hålla en fjärdedels korridor vid referens-tuningen kräver **6,4 tap/s uthålligt**.
+Amplituden följer `A = h·T²/(2·t_f²)`, verifierad analytiskt och numeriskt, låst av
+`hoverAmplitudeMatchesTheAnalyticFormula`.
+
+### Varför ingen trimning hjälper
+
+Att sväva vid `r` tap/s samplar de första `1/r` sekunderna efter varje flipp. Vid
+5 tap/s är det 0,20 s; en full korsning tar 0,22 s. **Samma tidsfönster.** Snärtig
+flipp = mycket hastighet vunnen där; billigt svävande = lite. Samma storhet, motsatt
+önskat tecken.
+
+### Testade och förkastade
+
+| Åtgärd | Resultat |
+|---|---|
+| Hastighetstak (terminalhastighet) | **Förkastad.** 41 % korridor vid 5 tap/s med *och* utan tak — det binder inte vid relevanta taptakter. Priset är 1,45× långsammare korsning. |
+| Dämpning / svagare gravitation / avklingande burst | Förkastade på tidsskale-argumentet ovan, utan att implementeras. |
+| Impulsläge (tap sätter hastighet) | **Implementerat bakom växlare.** Exakt √2 ≈ 1,41× billigare: 6,4 → 4,5 tap/s. Med `flipDuration` 0,30 → 3,3 tap/s. Men gravitationen pekar då alltid nedåt — ett annat spel. |
+
+### Följdändringar i specen
+
+- §1 påstår inte längre att svävandet är identiteten
+- §3:s tier-stege toppar vid 4 luftflippar i följd, inte "ihållande"
+- Ny öppen fråga §15.5: vad är hooken, när den enda mekaniskt nya delen inte bär
+
+### Obesvarat
+
+- Känns impulsläget bättre än att vända tecknet? Växlaren finns i trim-panelen.
+- Om impulsläget vinner: är det fortfarande spelet vi vill bygga?

@@ -30,41 +30,63 @@ Känslan vi designar mot: *"jag ska bara försöka en gång till."*
 
 ---
 
-## 1. Identiteten: svävtekniken
+## 1. Flippen i luften — och vad den inte är
 
-`[G-design]` Gravitationsvändningsrunner var en av de mest klonade mobilgenrerna
-2011–2015 (Gravity Guy, Run, Wave Wave). Mekaniken i sig är inte ny. **Det enda
-mekaniskt nya här är svävandet** — att snabba alternerande tap låter dig hålla en höjd
-mitt i kanalen istället för att pendla mellan ytorna.
+`[G-design]` `[M2-fynd]` Gravitationsvändningsrunner var en av de mest klonade
+mobilgenrerna 2011–2015 (Gravity Guy, Run, Wave Wave). Mekaniken i sig är inte ny.
 
-Därför är svävandet **spelets identitet, inte en dold finess**. Det ska ha ett eget
-visuellt tillstånd (flutter, spår, annan pose), det ska namnges, tiers ordnas efter det,
-och all marknadsföring byggs kring det. En spelare som håller en linje genom en korridor
-som ser omöjlig ut är tre-sekundersvideon. "Gravity flip runner" är det inte.
+**Tidigare version av det här avsnittet påstod att svävandet — att hålla en linje mitt
+i kanalen med snabb alternerande tapping — var spelets identitet. Det påståendet är
+falsifierat genom spel på enhet 2026-09-13 och är struket.**
 
-### Svävandets fysik — uppmätt, inte gissad
+### Varför det inte bär
 
-Vid alternerande gravitation med inter-tap-intervall `T` blir svängningens
-peak-to-peak-amplitud `A = h·T²/(2·t_f²)`, där `h` är kanalhöjden och `t_f` är
-`flipDuration`. Verifierat numeriskt.
+Att hålla en korridor på en fjärdedel av kanalen vid referens-tuningen kräver
+**6,4 tap i sekunden, uthålligt.** Det är inte en trimningsfråga:
 
-| Korridor (% av kanalhöjd) | Krävd tap-takt vid `t_f` = 0,22 s |
-|---|---|
-| 40 % | 3,6 /s |
-| 20 % | 5,1 /s |
-| 16 % | 5,7 /s |
-| 8 % | 8,0 /s ← taket |
+| `flipDuration` | 15 % korridor | 25 % | 40 % |
+|---|---|---|---|
+| 0,18 | 10,1/s | 7,9/s | 6,2/s |
+| **0,22** | 8,3/s | 6,4/s | 5,1/s |
+| 0,30 | 6,1/s | 4,7/s | 3,7/s |
+| 0,35 | 5,2/s | 4,0/s | 3,2/s |
 
-**Konsekvenser som designen måste respektera:**
+Amplituden följer `A = h·T²/(2·t_f²)`, verifierad både analytiskt och numeriskt och
+låst av ett test i `OMTCoreTests`.
 
-1. Vid tak-takten 8/s är den smalaste möjliga korridoren ~8 % av kanalhöjden. Plus
-   figurens egen höjd blir den smalaste *lagliga* öppningen ~28 %. Svävpassager är
-   alltså **långa och uthållighetskrävande, inte trånga och precisa**.
-2. Krävd tap-takt är proportionell mot `1/t_f`. Att strama `flipDuration` från 0,28 till
-   0,18 höjer kravet med 56 %. **Per-tier `flipDuration` och tap-takstaket är inte
-   oberoende rattar** — validering måste köras om när endera ändras.
+**Den strukturella orsaken:** en gravitationsvändning sätter accelerationens *tecken*,
+så position är dubbelintegralen av spelarens input. Kostnaden att hålla en korridor
+skalar därför som `1/T²`. Flappy Birds tap sätter hastigheten direkt — en integration
+istället för två — vilket är varför 2–3 tap i sekunden räcker där.
 
----
+**Och varför ingen trimning löser det:** att sväva vid `r` tap i sekunden samplar exakt
+de första `1/r` sekunderna av accelerationen efter varje flipp. Vid 5 tap/s är det
+0,20 s. En full kanalkorsning tar 0,22 s. Det är samma tidsfönster. Snärtig flipp
+betyder mycket hastighet vunnen i det fönstret; billigt svävande betyder lite. Samma
+fysiska storhet, motsatt önskat tecken.
+
+Det utesluter hela klassen av åtgärder, inte bara en av dem. Ett hastighetstak testades
+numeriskt och gav 41 % korridor vid 5 tap/s både med och utan tak, till priset av en
+1,45× långsammare korsning — det binder helt enkelt inte vid de taptakter som spelar
+roll. Dämpning, svagare gravitation och en avklingande burst faller på samma argument.
+
+### Vad flippen i luften fortfarande är
+
+**Ett korrigeringsverktyg, inte en uthållig teknik.** En eller två vältajmade flippar
+för att justera en bana mitt i luften är billigt, skickligt och roligt. Det är bara det
+ihållande som är armhävningar. Mekaniken behålls oförändrad; det är anspråket som
+skrivs ned.
+
+### Impulsläget
+
+`ControlMode.impulse` finns implementerat bakom en växlare: tap sätter vertikal
+hastighet direkt istället för att vända accelerationens tecken. Det ger **exakt √2 ≈
+1,41 gånger billigare svävande** — 6,4/s ner till 4,5/s för en fjärdedels korridor, och
+3,3/s i kombination med `flipDuration` 0,30.
+
+Reell förbättring, men det är ett annat spel: gravitationen pekar alltid mot golvet, och
+taket nås genom upprepad tapping snarare än genom en vändning. Utvärderas under M2.
+Standardläget är fortfarande `gravityFlip`.
 
 ## 2. Lagermodellen
 
@@ -144,11 +166,16 @@ luften** som ett mönster kräver:
 | 3 | 2 | Dubbelkorrektion |
 | 4 | 3 | |
 | 5 | 4 | |
-| 6 | ihållande | Svävandet som huvudfärdighet |
+| 6 | 4, med snävare marginaler och högre tempo | Taket är 4 — inte "ihållande". Se §1. |
 
-Detta gör ordningen monoton och mekaniskt beräkningsbar istället för intuitiv, och
-upplöser motsägelsen "ingen behöver läras svävandet" mot "svävpassager är de svåraste
-mönstren". Svävandet lärs ut av geometri i tier 2, aldrig av en textruta.
+Detta gör ordningen monoton och mekaniskt beräkningsbar istället för intuitiv. Luftflippen
+lärs ut av geometri i tier 2, aldrig av en textruta.
+
+`[M2-fynd]` Stegen toppar vid fyra flippar i följd. Bortom det blir det uthållighet snarare
+än skicklighet (§1), och de sista tiersen måste därför bli svårare genom **snävare
+marginaler och högre tempo** istället för genom fler flippar. Det gör tier 6 till en
+tuningfråga, inte en ny färdighet — vilket är sämre för progressionskänslan och är en
+verklig kostnad för fyndet.
 
 `[G-design]` 6 tiers, inte 8. Åtta med disjunkta pooler är en innehållsfälla.
 
@@ -777,7 +804,12 @@ integritetsberättelse.** Det är en verklig fördel — behåll den.
 3. **Tier-BPM-uppsättning** (§7) — sex tempi som ger hörbar identitet och stödjer rampen.
 4. **Går 6 tiers att ordna** när svävkrav gör svårigheten bimodal? Ordningsmåttet i §3
    (max luftflippar i följd) är hypotesen. Prövas vid M4.
-5. **Overkill-risk i M4:** om 20 rimliga mönster inte går att författa på en kväll är
+5. **Vad är hooken?** `[M2-fynd]` Svävandet var designens enda mekaniskt nya del och bär
+   inte. Genren är enligt granskningen helt mättad, så spelet konkurrerar nu på känsla och
+   presentation snarare än på mekanik. Det är ett legitimt läge — Downwell gjorde precis
+   det — men det ska stå skrivet istället för antas bort, och det ändrar vad som är värt
+   att lägga tid på: tre sekunders video måste bära på utseende och game feel.
+6. **Overkill-risk i M4:** om 20 rimliga mönster inte går att författa på en kväll är
    handförfattande dött och procedurell generering med en svårighetsratt är planen.
 
 ---
@@ -801,3 +833,10 @@ väsentligt:
 - **Charm-argumentet för döden höll inte**; diagnostik är den riktiga motiveringen (§8)
 - **Fotokänslighet** var en verklig oadresserad säkerhetsfråga (§12)
 - **Fun-grinden låg i fel ände av projektet** (§13)
+
+Och ett fynd som kom ur att faktiskt spela, inte ur granskning:
+
+- **Svävandet bär inte.** Förutsagt av granskningens matematik, bekräftat på enhet, och
+  spårat till en tidsskale-konflikt som ingen trimning kan lösa (§1). Roadmapens M2 finns
+  precis för att fånga sånt före innehållsproduktion; kostnaden blev en eftermiddag
+  istället för en månad.

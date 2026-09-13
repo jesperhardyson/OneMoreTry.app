@@ -124,6 +124,15 @@ struct ContentView: View {
         VStack {
             Spacer()
             VStack(spacing: 6) {
+                Picker("", selection: $model.tuning.mode) {
+                    Text("vänd tecken").tag(ControlMode.gravityFlip)
+                    Text("impuls").tag(ControlMode.impulse)
+                }
+                .pickerStyle(.segmented)
+
+                if model.tuning.mode == .impulse {
+                    slider("impulsstyrka", $model.tuning.impulseFraction, 0.25...0.9)
+                }
                 slider("flipp-avtryck", $model.tuning.flipFootprint, 0.6...3.0)
                 slider("flipDuration", $model.tuning.flipDuration, 0.10...0.40)
                 slider("svårighet", $model.difficulty, 0...1)

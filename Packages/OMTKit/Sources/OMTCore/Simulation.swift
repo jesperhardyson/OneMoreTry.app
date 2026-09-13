@@ -8,6 +8,16 @@ public enum Sign: Sendable {
     var acceleration: Double { self == .down ? -1 : 1 }
 }
 
+/// Vad ett tap gor. Se docs/decision-log.md 2026-09-13.
+public enum ControlMode: Sendable, Hashable {
+    /// Tap vander accelerationens tecken. Position ar dubbelintegralen av
+    /// input, sa kostnaden att halla en korridor skalar som 1/T^2.
+    case gravityFlip
+    /// Tap satter vertikal hastighet direkt. En integration istallet for tva,
+    /// vilket ger exakt sqrt(2) ganger billigare svavande.
+    case impulse
+}
+
 /// Trimkonstanter. Det justerbara vardet ar `flipFootprint` — hur langt figuren
 /// fardas horisontellt under en full kanalkorsning, matt i kanalhojder.
 /// Scrollhastigheten harleds ur den. Se docs/decision-log.md.
@@ -17,19 +27,27 @@ public struct Tuning: Sendable {
     public var characterWidth: Double
     public var flipDuration: Double
     public var flipFootprint: Double
+    public var mode: ControlMode
+    /// Impulsens styrka som andel av farten vid en full korsning fran vila.
+    /// 0,5 ger en exkursion pa 25 % av kanalen per tap.
+    public var impulseFraction: Double
 
     public init(
         channelHeight: Double,
         characterHeight: Double,
         characterWidth: Double,
         flipDuration: Double,
-        flipFootprint: Double
+        flipFootprint: Double,
+        mode: ControlMode = .gravityFlip,
+        impulseFraction: Double = 0.5
     ) {
         self.channelHeight = channelHeight
         self.characterHeight = characterHeight
         self.characterWidth = characterWidth
         self.flipDuration = flipDuration
         self.flipFootprint = flipFootprint
+        self.mode = mode
+        self.impulseFraction = impulseFraction
     }
 
     /// Avstandet figurens centrum faktiskt kan rora sig mellan ytorna.
@@ -44,6 +62,12 @@ public struct Tuning: Sendable {
     public var floorY: Double { characterHeight / 2 }
     public var ceilingY: Double { channelHeight - characterHeight / 2 }
     public var scrollSpeed: Double { flipFootprint * channelHeight / flipDuration }
+
+    /// `squareRoot()` ar stdlib och korrekt avrundad. Fria `sqrt()` kommer fran
+    /// Foundation, som OMTCore inte far importera. Se CLAUDE.md.
+    public var impulseSpeed: Double {
+        impulseFraction * (2 * gravityMagnitude * usableHeight).squareRoot()
+    }
 
     /// Vertikal marginal under vilken en passage raknas som en near-miss.
     public var nearMissClearance: Double { usableHeight * 0.10 }
@@ -98,8 +122,15 @@ public enum Simulator {
         var events: [RunEvent] = []
 
         if flip {
-            s.gravity = s.gravity.flipped
-            events.append(.flipped(step: s.step, direction: s.gravity))
+            switch tuning.mode {
+            case .gravityFlip:
+                s.gravity = s.gravity.flipped
+                events.append(.flipped(step: s.step, direction: s.gravity))
+            case .impulse:
+                // Hastigheten satts, inte adderas: det ar hela skillnaden.
+                s.vy = tuning.impulseSpeed
+                events.append(.flipped(step: s.step, direction: .up))
+            }
         }
 
         let x0 = s.x

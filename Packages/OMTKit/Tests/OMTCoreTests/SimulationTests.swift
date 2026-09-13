@@ -172,3 +172,60 @@ import Testing
 
     #expect(cause == .floorObstacle)
 }
+
+// --- Impulslage ---
+// Tap satter vertikal hastighet direkt istallet for att vanda accelerationens
+// tecken. Integrerar en gang istallet for tva, vilket ger exakt sqrt(2) ganger
+// billigare svavande. Se docs/decision-log.md.
+
+@Test func impulseModeSetsVelocityRegardlessOfWhatItWas() {
+    var t = Tuning.reference
+    t.mode = .impulse
+    var s = SimState.initial(tuning: t)
+
+    // Fall en stund sa att vy hinner bli kraftigt negativ — men inte sa langt
+    // att golvklampningen nollar den at oss och testet blir meningslost.
+    s.y = t.channelHeight / 2
+    for _ in 0..<20 { s = Simulator.step(s, tuning: t, flip: false).state }
+    #expect(s.vy < -100)
+    #expect(s.y > t.floorY)
+
+    // ...och ett tap ska nolla ut det helt, inte adderas till det.
+    s = Simulator.step(s, tuning: t, flip: true).state
+    #expect(abs(s.vy - t.impulseSpeed) < t.gravityMagnitude * Simulator.dt * 1.5)
+}
+
+@Test func impulseModeNeverFlipsGravity() {
+    var t = Tuning.reference
+    t.mode = .impulse
+    var s = SimState.initial(tuning: t)
+    s.y = t.channelHeight / 2
+
+    for i in 0..<200 {
+        s = Simulator.step(s, tuning: t, flip: i % 30 == 0).state
+        #expect(s.gravity == .down)
+    }
+}
+
+@Test func impulseHoverExcursionMatchesTheAnalyticFormula() {
+    // Toppexkursion efter en impuls = v0^2 / (2g).
+    var t = Tuning.reference
+    t.mode = .impulse
+    let expected = t.impulseSpeed * t.impulseSpeed / (2 * t.gravityMagnitude)
+
+    var s = SimState.initial(tuning: t)
+    s.y = t.channelHeight / 2
+    let start = s.y
+    s = Simulator.step(s, tuning: t, flip: true).state
+
+    var peak = s.y
+    while s.vy > 0 {
+        s = Simulator.step(s, tuning: t, flip: false).state
+        peak = max(peak, s.y)
+    }
+
+    // Semi-implicit Euler slanger over med ungefar v0*dt/2, vilket vid
+    // dt = 1/240 ar knappt 4 %. Formeln ar designverktyget, simuleringen ar
+    // sanningen — 5 % skiljer dem at utan att slappa igenom en riktig bugg.
+    #expect(abs((peak - start) - expected) / expected < 0.05)
+}
