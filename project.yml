@@ -1,0 +1,38 @@
+name: OneMoreTry
+options:
+  bundleIdPrefix: se.hardyson
+  deploymentTarget:
+    iOS: "26.0"
+  createIntermediateGroups: true
+
+packages:
+  OMTKit:
+    path: Packages/OMTKit
+
+targets:
+  OneMoreTry:
+    type: application
+    platform: iOS
+    sources: [App]
+    dependencies:
+      - package: OMTKit
+        product: OMTCore
+    info:
+      path: App/Info.plist
+      properties:
+        CFBundleDisplayName: One More Try
+        UILaunchScreen: {}
+        # Utan denna klampar iOS tredjepartsappar till 60 Hz. Se CLAUDE.md.
+        CADisableMinimumFrameDurationClamp: true
+        UIStatusBarHidden: true
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: se.hardyson.OneMoreTry
+        TARGETED_DEVICE_FAMILY: "1"
+        SWIFT_VERSION: "6.3"
+        CODE_SIGN_STYLE: Automatic
+        DEVELOPMENT_TEAM: 4WZU5V58ZG
+        SWIFT_STRICT_CONCURRENCY: complete
