@@ -21,7 +21,9 @@ final class GameModel {
     private var accumulator: Double = 0
     private var lastFrameTime: CFTimeInterval?
     private var runStartUptime: CFTimeInterval = 0
-    private var pendingTapSteps: [UInt32] = []
+    private var pendingPressSteps: [UInt32] = []
+    private var pendingReleaseSteps: [UInt32] = []
+    private var isHolding = false
     private var nextSpawnX: Double = 500
     private var rngState: UInt64 = 0x9E37_79B9_7F4A_7C15
 
@@ -57,11 +59,19 @@ final class GameModel {
             restart()
             return
         }
+        pendingPressSteps.append(quantise(uptime))
+    }
+
+    /// Slapp. Kapar hoppet i impulslaget — se `Tuning.impulseCutSpeed`.
+    func release(atUptime uptime: CFTimeInterval) {
+        pendingReleaseSteps.append(quantise(uptime))
+    }
+
+    /// Samma klampningsregel for bada: en touch kan ha en tidsstampel tidigare
+    /// an steg vi redan simulerat, och replayen lagrar det klampade steget.
+    private func quantise(_ uptime: CFTimeInterval) -> UInt32 {
         let raw = (uptime - runStartUptime) * Simulator.stepsPerSecond
-        let touchStep = UInt32(max(0, raw.rounded(.down)))
-        // Klampa framat: en touch kan ha en tidsstampel tidigare an steg
-        // vi redan simulerat.
-        pendingTapSteps.append(max(touchStep, state.step))
+        return max(UInt32(max(0, raw.rounded(.down))), state.step)
     }
 
     func restart() {
@@ -69,7 +79,9 @@ final class GameModel {
         bestDistance = max(bestDistance, state.x)
         state = SimState.initial(tuning: tuning)
         obstacles.removeAll()
-        pendingTapSteps.removeAll()
+        pendingPressSteps.removeAll()
+        pendingReleaseSteps.removeAll()
+        isHolding = false
         nextSpawnX = 500
         rngState = 0x9E37_79B9_7F4A_7C15
         accumulator = 0
@@ -80,13 +92,22 @@ final class GameModel {
         guard state.alive else { return }
 
         var flip = false
-        while let first = pendingTapSteps.first, first <= state.step {
-            pendingTapSteps.removeFirst()
+        while let first = pendingPressSteps.first, first <= state.step {
+            pendingPressSteps.removeFirst()
             flip = true
+            isHolding = true
+        }
+        // Slapp konsumeras efter nedtryck, sa ett tryck kortare an ett steg
+        // registreras som ett omedelbart slapp — kortast mojliga hopp.
+        while let first = pendingReleaseSteps.first, first <= state.step {
+            pendingReleaseSteps.removeFirst()
+            isHolding = false
         }
 
         generateAhead()
-        let result = Simulator.step(state, tuning: tuning, flip: flip, obstacles: obstacles)
+        let result = Simulator.step(
+            state, tuning: tuning, flip: flip, holding: isHolding, obstacles: obstacles
+        )
         state = result.state
         for event in result.events {
             feedback.emit(event)

@@ -16,7 +16,8 @@ struct ContentView: View {
 
             GameHost(
                 onFrame: { model.frame(at: $0) },
-                onTap: { model.tap(atUptime: $0) }
+                onTap: { model.tap(atUptime: $0) },
+                onRelease: { model.release(atUptime: $0) }
             )
             .ignoresSafeArea()
 
@@ -132,6 +133,7 @@ struct ContentView: View {
 
                 if model.tuning.mode == .impulse {
                     slider("impulsstyrka", $model.tuning.impulseFraction, 0.25...0.9)
+                    slider("hoppkapning", $model.tuning.impulseCutFraction, 0.05...1.0)
                 }
                 slider("flipp-avtryck", $model.tuning.flipFootprint, 0.6...3.0)
                 slider("flipDuration", $model.tuning.flipDuration, 0.10...0.40)

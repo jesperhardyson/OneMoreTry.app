@@ -75,3 +75,43 @@ flipp = mycket hastighet vunnen där; billigt svävande = lite. Samma storhet, m
 
 - Känns impulsläget bättre än att vända tecknet? Växlaren finns i trim-panelen.
 - Om impulsläget vinner: är det fortfarande spelet vi vill bygga?
+
+---
+
+## 2026-09-13 — Impulsläget vinner, och får variabel hopphöjd (M2, tredje passet)
+
+Testat på enhet: **impulsläget känns bättre än att vända tecknet.** Inte formellt
+utvärderat mot grinden, men tydligt nog för att styra nästa steg.
+
+Därav frågan som ledde till dagens bästa idé: *borde längre tryck ge högre hopp?*
+
+### Mario-kapning, inte ladda-och-släpp
+
+| Variant | Bedömning |
+|---|---|
+| Ladda-och-släpp (håll laddar, släpp agerar) | **Förkastad.** Lägger latens i exakt det ögonblick spelaren har 150 ms. Samma argument som mot alternativ D i det första mekanikvalet. |
+| Mario-kapning (full impuls vid nedtryck, kapad fart vid tidigt släpp) | **Implementerad.** Noll extra latens, analog axel, och golvet är oförändrat. |
+
+Hopphöjden är gravitationsbunden, inte timerbunden: när farten fallit under
+kapningsnivån gör ett släpp ingenting. Låst av `holdingBeyondTheDecayPointAddsNothing`.
+
+### Varför den här lyckas där svävandet misslyckades
+
+Svävandet såldes in som "djup för den som hittar det" men var obligatoriska
+armhävningar. Variabel hopphöjd har den egenskapen på riktigt — en nybörjare behöver
+aldrig veta att tryckets längd betyder något, och nyansen kostar ingen uthållighet.
+
+### Konsekvens för replay-formatet
+
+Tryckets längd är nu speldata. En input är ett **par** av stegindex, inte ett. Spec §4
+och CLAUDE.md uppdaterade. Hade formatet hunnit låsas som en lista av enskilda tap
+hade varje lagrad replay blivit oåterkallelig i samma ögonblick mekaniken fick en
+analog axel.
+
+### Obesvarat
+
+- `impulseCutFraction` står på 0,35 som gissning. Reglaget "hoppkapning" finns i
+  trim-panelen. Fönstret där ett tryck räknas som kort är ~70 ms vid det värdet, vilket
+  kan vara för snävt jämfört med hur länge en människa faktiskt håller ett tap.
+- Om impulsläget blir standard: §0:s låsta beslut "gravitationsvänd" är inte längre
+  sant, och specen behöver ett större omtag än en paragraf.

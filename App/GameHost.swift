@@ -9,11 +9,13 @@ import UIKit
 struct GameHost: UIViewRepresentable {
     let onFrame: (CFTimeInterval) -> Void
     let onTap: (CFTimeInterval) -> Void
+    let onRelease: (CFTimeInterval) -> Void
 
     func makeUIView(context: Context) -> GameHostUIView {
         let view = GameHostUIView()
         view.onFrame = onFrame
         view.onTap = onTap
+        view.onRelease = onRelease
         view.backgroundColor = .clear
         view.isMultipleTouchEnabled = false
         return view
@@ -22,12 +24,14 @@ struct GameHost: UIViewRepresentable {
     func updateUIView(_ view: GameHostUIView, context: Context) {
         view.onFrame = onFrame
         view.onTap = onTap
+        view.onRelease = onRelease
     }
 }
 
 final class GameHostUIView: UIView {
     var onFrame: ((CFTimeInterval) -> Void)?
     var onTap: ((CFTimeInterval) -> Void)?
+    var onRelease: ((CFTimeInterval) -> Void)?
 
     private var link: CADisplayLink?
 
@@ -55,5 +59,15 @@ final class GameHostUIView: UIView {
     override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
         guard let touch = touches.first else { return }
         onTap?(touch.timestamp)
+    }
+
+    override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent?) {
+        guard let touch = touches.first else { return }
+        onRelease?(touch.timestamp)
+    }
+
+    override func touchesCancelled(_ touches: Set<UITouch>, with event: UIEvent?) {
+        guard let touch = touches.first else { return }
+        onRelease?(touch.timestamp)
     }
 }

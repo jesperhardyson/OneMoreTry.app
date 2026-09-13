@@ -191,7 +191,8 @@ import Testing
     #expect(s.y > t.floorY)
 
     // ...och ett tap ska nolla ut det helt, inte adderas till det.
-    s = Simulator.step(s, tuning: t, flip: true).state
+    // `holding: true` = fingret nere, alltsa full impuls utan kapning.
+    s = Simulator.step(s, tuning: t, flip: true, holding: true).state
     #expect(abs(s.vy - t.impulseSpeed) < t.gravityMagnitude * Simulator.dt * 1.5)
 }
 
@@ -216,11 +217,12 @@ import Testing
     var s = SimState.initial(tuning: t)
     s.y = t.channelHeight / 2
     let start = s.y
-    s = Simulator.step(s, tuning: t, flip: true).state
+    s = Simulator.step(s, tuning: t, flip: true, holding: true).state
 
+    // Fingret hals nere hela stigningen: formeln beskriver ett okapat hopp.
     var peak = s.y
     while s.vy > 0 {
-        s = Simulator.step(s, tuning: t, flip: false).state
+        s = Simulator.step(s, tuning: t, flip: false, holding: true).state
         peak = max(peak, s.y)
     }
 
@@ -228,4 +230,72 @@ import Testing
     // dt = 1/240 ar knappt 4 %. Formeln ar designverktyget, simuleringen ar
     // sanningen — 5 % skiljer dem at utan att slappa igenom en riktig bugg.
     #expect(abs((peak - start) - expected) / expected < 0.05)
+}
+
+// --- Variabel hopphojd (Mario-kapning) ---
+// Impulsen fyrar med full styrka vid nedtryck. Slapper spelaren tidigt kapas
+// den uppatriktade hastigheten. Noll extra latens, en analog axel.
+
+private func peakRise(holdSteps: Int, tuning t: Tuning) -> Double {
+    var s = SimState.initial(tuning: t)
+    s.y = t.channelHeight / 2
+    let start = s.y
+    var peak = s.y
+    var i = 0
+    repeat {
+        let result = Simulator.step(
+            s, tuning: t, flip: i == 0, holding: i < holdSteps, obstacles: []
+        )
+        s = result.state
+        peak = max(peak, s.y)
+        i += 1
+    } while s.vy > 0 && i < 5_000
+    return peak - start
+}
+
+@Test func releasingEarlyProducesALowerJump() {
+    var t = Tuning.reference
+    t.mode = .impulse
+
+    let tap = peakRise(holdSteps: 1, tuning: t)
+    let held = peakRise(holdSteps: 600, tuning: t)
+
+    #expect(tap < held * 0.5)
+    #expect(tap > 0)
+}
+
+@Test func holdingBeyondTheDecayPointAddsNothing() {
+    var t = Tuning.reference
+    t.mode = .impulse
+
+    // Nar hastigheten fallit under kapningsnivan gor ett slapp ingenting,
+    // sa hopphojden ar bunden av gravitationen — ingen timer behovs.
+    let long = peakRise(holdSteps: 600, tuning: t)
+    let longer = peakRise(holdSteps: 2_000, tuning: t)
+
+    #expect(abs(long - longer) < 0.001)
+}
+
+@Test func releasingWhenAlreadySlowDoesNotSpeedYouUp() {
+    var t = Tuning.reference
+    t.mode = .impulse
+    var s = SimState.initial(tuning: t)
+    s.y = t.channelHeight / 2
+    s.vy = 5   // langsammare an kapningsnivan
+
+    let after = Simulator.step(s, tuning: t, flip: false, holding: false).state
+    #expect(after.vy < 5)
+}
+
+@Test func holdHasNoEffectInGravityFlipMode() {
+    let t = Tuning.reference   // .gravityFlip
+    var held = SimState.initial(tuning: t)
+    var released = held
+    held.y = t.channelHeight / 2
+    released.y = t.channelHeight / 2
+
+    held = Simulator.step(held, tuning: t, flip: true, holding: true).state
+    released = Simulator.step(released, tuning: t, flip: true, holding: false).state
+
+    #expect(held.vy == released.vy)
 }

@@ -36,6 +36,9 @@ sönder tyst.
   representerbart, så `t += dt` driver. Klarandevillkor är `step >= 14_400`.
 - **Tap lagras som klampat heltalssteg**, aldrig som rå tidsstämpel:
   `appliedStep = max(stepOf(touch.timestamp), nextUnsimulatedStep)`.
+- **Både nedtryck och släpp är speldata.** Variabel hopphöjd gör tryckets längd till
+  en analog axel, så en input är ett *par* av stegindex. Samma klampningsregel gäller
+  båda. En replay som bara lagrar nedtryck kan inte reproduceras.
 
 Determinismgrinden i CI kör samma test i `-c debug` och `-c release`. Fyrar den: sluta och
 hitta orsaken, höj inte toleransen.

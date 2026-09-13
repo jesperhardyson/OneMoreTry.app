@@ -77,6 +77,26 @@ för att justera en bana mitt i luften är billigt, skickligt och roligt. Det ä
 ihållande som är armhävningar. Mekaniken behålls oförändrad; det är anspråket som
 skrivs ned.
 
+### Variabel hopphöjd
+
+`[M2-fynd]` I impulsläget fyrar impulsen med full styrka vid nedtryck, och släpper
+spelaren tidigt **kapas** den uppåtriktade hastigheten till `impulseCutSpeed`. Kort
+tryck ger ett litet hopp, långt tryck ett fullt.
+
+Mario-modellen, inte ladda-och-släpp: laddning hade lagt latens i exakt det ögonblick
+spelaren har 150 ms på sig, vilket var argumentet mot den varianten i första
+mekanikvalet. Här är responsen omedelbar och nyansen ligger i vad som händer *efter*
+nedtrycket.
+
+Det ger designen tillbaka den egenskap svävandet skulle ha haft och inte hade:
+**golvet är oförändrat.** En nybörjare trycker och får ett hopp utan att veta att
+längden betyder något; en erfaren spelare upptäcker en analog axel som alltid funnits
+där. Till skillnad från svävandet kostar den ingenting i uthållighet — den gör tvärtom
+svävandet billigare, eftersom små korrigeringar inte längre kräver fulla impulser.
+
+Hopphöjden är bunden av gravitationen snarare än av en timer: när farten fallit under
+kapningsnivån gör ett släpp ingenting. Ingen maxlängd behöver definieras.
+
 ### Impulsläget
 
 `ControlMode.impulse` finns implementerat bakom en växlare: tap sätter vertikal
@@ -281,8 +301,14 @@ bara om grinden någonsin fyrar.
 ### Körningens post
 
 ```
-(simVersion: UInt16, contentHash: UInt64, tierID, seed: UInt64, tapSteps: [UInt32])
+(simVersion: UInt16, contentHash: UInt64, tierID, seed: UInt64,
+ inputs: [(press: UInt32, release: UInt32)])
 ```
+
+`[M2-fynd]` Variabel hopphöjd gör att **tryckets längd är speldata**, inte bara dess
+tidpunkt. Ett tap är därför ett par av stegindex, inte ett. Båda klampas framåt med
+samma regel. Hade formatet låsts som en lista av enskilda tap hade varje lagrad replay
+blivit oåterkallelig i samma ögonblick som mekaniken fick en analog axel.
 
 `[G-teknik]` `contentHash` hashar packad mönsterdata + trimkonstanter, bakas in av
 `Tools/`. En replay vars `simVersion`/`contentHash` inte matchar bygget **avvisas högljutt,

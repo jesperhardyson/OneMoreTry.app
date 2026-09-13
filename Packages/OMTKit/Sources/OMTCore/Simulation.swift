@@ -31,6 +31,9 @@ public struct Tuning: Sendable {
     /// Impulsens styrka som andel av farten vid en full korsning fran vila.
     /// 0,5 ger en exkursion pa 25 % av kanalen per tap.
     public var impulseFraction: Double
+    /// Hur mycket uppatriktad fart som behalls nar fingret slapper tidigt.
+    /// Lagre varde = storre skillnad mellan ett kort och ett langt tryck.
+    public var impulseCutFraction: Double
 
     public init(
         channelHeight: Double,
@@ -39,7 +42,8 @@ public struct Tuning: Sendable {
         flipDuration: Double,
         flipFootprint: Double,
         mode: ControlMode = .gravityFlip,
-        impulseFraction: Double = 0.5
+        impulseFraction: Double = 0.5,
+        impulseCutFraction: Double = 0.35
     ) {
         self.channelHeight = channelHeight
         self.characterHeight = characterHeight
@@ -48,6 +52,7 @@ public struct Tuning: Sendable {
         self.flipFootprint = flipFootprint
         self.mode = mode
         self.impulseFraction = impulseFraction
+        self.impulseCutFraction = impulseCutFraction
     }
 
     /// Avstandet figurens centrum faktiskt kan rora sig mellan ytorna.
@@ -68,6 +73,8 @@ public struct Tuning: Sendable {
     public var impulseSpeed: Double {
         impulseFraction * (2 * gravityMagnitude * usableHeight).squareRoot()
     }
+
+    public var impulseCutSpeed: Double { impulseSpeed * impulseCutFraction }
 
     /// Vertikal marginal under vilken en passage raknas som en near-miss.
     public var nearMissClearance: Double { usableHeight * 0.10 }
@@ -114,6 +121,7 @@ public enum Simulator {
         _ state: SimState,
         tuning: Tuning,
         flip: Bool,
+        holding: Bool = false,
         obstacles: [Obstacle] = []
     ) -> StepResult {
         var s = state
@@ -131,6 +139,13 @@ public enum Simulator {
                 s.vy = tuning.impulseSpeed
                 events.append(.flipped(step: s.step, direction: .up))
             }
+        }
+
+        // Mario-kapning: impulsen fyrar med full styrka vid nedtryck, men
+        // slapper fingret tidigt kapas farten. Noll extra latens — till skillnad
+        // fran ladda-och-slapp, som lagger latens dar spelaren har 150 ms.
+        if tuning.mode == .impulse, !holding, s.vy > tuning.impulseCutSpeed {
+            s.vy = tuning.impulseCutSpeed
         }
 
         let x0 = s.x
