@@ -1,0 +1,74 @@
+# Every push and pull request is gated by one job:
+#   verify   format, lint, the determinism gate, and a simulator build of the app
+#
+# The TestFlight, release-please and App Store jobs described in
+# docs/superpowers/specs/2026-09-13-release-pipeline-design.md are not here yet. They need
+# the App Store Connect app record and the signing secrets, which are deliberately out of
+# scope until the app is ready to ship.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+# A new push to a pull request cancels the run still going for the previous one. Pushes to
+# main are keyed by commit instead, so each one gets its own group and none is cancelled —
+# a shared group drops the middle commit of a quick series, because only one run per group
+# can sit pending.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name == 'push' && github.sha || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    # This name is the required status check on main. Renaming it silently un-gates the
+    # branch, because a check that never reports is not a check that fails.
+    name: Verify
+    runs-on: macos-26
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v7.0.1
+
+      # Cheapest first: a formatting failure should not wait out a simulator build.
+      - name: SwiftFormat
+        run: swiftformat --lint .
+
+      - name: SwiftLint
+        run: |
+          brew install --quiet swiftlint
+          swiftlint --strict --reporter github-actions-logging
+
+      # The determinism gate. The same suite in both configurations, because the failure it
+      # exists to catch — a run that stops reproducing from its seed — only appears under
+      # optimisation. See CLAUDE.md.
+      #
+      # -enable-testing is needed because the tests use @testable import; SwiftPM otherwise
+      # refuses the release configuration. It does not turn off optimisation, it only emits
+      # internal symbols, so this still tests optimised code. That is the whole point.
+      - name: Determinism gate (debug)
+        run: swift test --package-path Packages/OMTKit
+
+      - name: Determinism gate (release)
+        run: swift test --package-path Packages/OMTKit -c release -Xswiftc -enable-testing
+
+      - name: Generate project
+        run: |
+          brew install --quiet xcodegen
+          xcodegen generate --quiet
+
+      # No `test` in the xcodebuild invocation: the app target has no test target. When one
+      # is added, `test` joins `build` in the same command.
+      - name: Build app
+        run: |
+          set -o pipefail
+          destination=$(Scripts/ci/simulator-destination.sh)
+          : "${destination:?simulator-destination.sh printed no destination}"
+          xcodebuild -project OneMoreTry.xcodeproj -scheme OneMoreTry \
+            -destination "$destination" \
+            -skipPackagePluginValidation \
+            CODE_SIGNING_ALLOWED=NO build | xcbeautify --renderer github-actions
