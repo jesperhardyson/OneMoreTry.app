@@ -25,17 +25,30 @@ final class Haptics {
     }
 
     func transient(intensity: Float, sharpness: Float) {
+        play([(0, intensity, sharpness)])
+    }
+
+    /// Tva transienter 70 ms isar. En enkel transient ar redan vad en flipp
+    /// betyder, sa portalen maste kanna annorlunda i handen och inte bara
+    /// starkare — annars ar tummen den enda sinnet som inte far veta om bytet.
+    func doubleTransient(intensity: Float, sharpness: Float) {
+        play([(0, intensity, sharpness), (0.07, intensity * 0.8, sharpness)])
+    }
+
+    private func play(_ events: [(time: Double, intensity: Float, sharpness: Float)]) {
         guard supported, let engine else { return }
-        let event = CHHapticEvent(
-            eventType: .hapticTransient,
-            parameters: [
-                CHHapticEventParameter(parameterID: .hapticIntensity, value: intensity),
-                CHHapticEventParameter(parameterID: .hapticSharpness, value: sharpness),
-            ],
-            relativeTime: 0
-        )
+        let hapticEvents = events.map { event in
+            CHHapticEvent(
+                eventType: .hapticTransient,
+                parameters: [
+                    CHHapticEventParameter(parameterID: .hapticIntensity, value: event.intensity),
+                    CHHapticEventParameter(parameterID: .hapticSharpness, value: event.sharpness),
+                ],
+                relativeTime: event.time
+            )
+        }
         guard
-            let pattern = try? CHHapticPattern(events: [event], parameters: []),
+            let pattern = try? CHHapticPattern(events: hapticEvents, parameters: []),
             let player = try? engine.makePlayer(with: pattern)
         else { return }
         try? player.start(atTime: CHHapticTimeImmediate)

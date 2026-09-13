@@ -11,6 +11,10 @@ import AVFoundation
 final class AudioEngine {
     enum Voice: CaseIterable {
         case flipUp, flipDown, nearMiss, death
+        /// Portalljuden ar langre, starkare och har en kvint ovanpa grundtonen.
+        /// Skalet ar inte dramatik: de far inte kunna forvaxlas med ett flippljud,
+        /// och en kort sinus ar exakt vad en flipp redan ar. Se spec §7.
+        case portalImpulse, portalGravity
     }
 
     private let engine = AVAudioEngine()
@@ -65,6 +69,10 @@ final class AudioEngine {
             tone(duration: 0.030, from: 1900, to: 1900, gain: 0.10, curve: 60)
         case .death:
             tone(duration: 0.220, from: 300, to: 70, gain: 0.30, curve: 9, noise: 0.35)
+        case .portalImpulse:
+            tone(duration: 0.200, from: 330, to: 990, gain: 0.26, curve: 7, harmonic: 0.45)
+        case .portalGravity:
+            tone(duration: 0.200, from: 990, to: 330, gain: 0.26, curve: 7, harmonic: 0.45)
         }
     }
 
@@ -74,7 +82,8 @@ final class AudioEngine {
         to endFreq: Double,
         gain: Double,
         curve: Double,
-        noise: Double = 0
+        noise: Double = 0,
+        harmonic: Double = 0
     ) -> AVAudioPCMBuffer {
         let sampleRate = format.sampleRate
         let frames = AVAudioFrameCount(duration * sampleRate)
@@ -84,17 +93,23 @@ final class AudioEngine {
         guard let channel = buffer.floatChannelData?[0] else { return buffer }
 
         var phase = 0.0
+        var harmonicPhase = 0.0
         var rng: UInt64 = 0x2545_F491_4F6C_DD1D
 
         for i in 0..<Int(frames) {
             let t = Double(i) / Double(frames)
             let freq = startFreq + (endFreq - startFreq) * t
             phase += 2 * Double.pi * freq / sampleRate
+            harmonicPhase += 2 * Double.pi * freq * 1.5 / sampleRate
 
             // Exponentiell avklingning — perkussivt, inte utdraget.
             let envelope = exp(-curve * t)
 
-            var sample = sin(phase)
+            // En kvint ovanpa grundtonen ger en klangfarg, inte bara en annan
+            // tonhojd. Det ar skillnaden mellan "ett annat ljud" och "samma ljud
+            // hogre upp", och portalen behover det forsta.
+            var sample = sin(phase) + harmonic * sin(harmonicPhase)
+            if harmonic > 0 { sample /= 1 + harmonic }
             if noise > 0 {
                 rng ^= rng << 13
                 rng ^= rng >> 7
