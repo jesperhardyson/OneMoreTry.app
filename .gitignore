@@ -1,0 +1,22 @@
+# macOS
+.DS_Store
+
+# Xcode
+build/
+DerivedData/
+*.xcuserstate
+xcuserdata/
+*.xcscmblueprint
+*.xccheckout
+
+# SwiftPM
+.build/
+.swiftpm/
+Package.resolved
+
+# Blender
+*.blend1
+*.blend2
+
+# Genererade mellansteg (atlas + index committas, se CLAUDE.md)
+Art/render/
