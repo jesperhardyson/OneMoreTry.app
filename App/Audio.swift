@@ -18,7 +18,7 @@ final class AudioEngine {
     }
 
     private let engine = AVAudioEngine()
-    private let format = AVAudioFormat(standardFormatWithSampleRate: 48_000, channels: 1)!
+    private let format = AVAudioFormat(standardFormatWithSampleRate: 48000, channels: 1)!
     private var players: [Voice: AVAudioPlayerNode] = [:]
     private var buffers: [Voice: AVAudioPCMBuffer] = [:]
     private var started = false
@@ -32,7 +32,7 @@ final class AudioEngine {
         // inbyggd hogtalare; Bluetooth lagger till 40-70 ms, vilket ar skalet
         // att ljud aldrig far vara en timingreferens. Se spec §7.
         try? session.setCategory(.ambient, options: [.mixWithOthers])
-        try? session.setPreferredSampleRate(48_000)
+        try? session.setPreferredSampleRate(48000)
         try? session.setPreferredIOBufferDuration(0.005)
         try? session.setActive(true)
 
@@ -83,7 +83,7 @@ final class AudioEngine {
         gain: Double,
         curve: Double,
         noise: Double = 0,
-        harmonic: Double = 0
+        harmonic: Double = 0,
     ) -> AVAudioPCMBuffer {
         let sampleRate = format.sampleRate
         let frames = AVAudioFrameCount(duration * sampleRate)
@@ -96,7 +96,7 @@ final class AudioEngine {
         var harmonicPhase = 0.0
         var rng: UInt64 = 0x2545_F491_4F6C_DD1D
 
-        for i in 0..<Int(frames) {
+        for i in 0 ..< Int(frames) {
             let t = Double(i) / Double(frames)
             let freq = startFreq + (endFreq - startFreq) * t
             phase += 2 * Double.pi * freq / sampleRate
@@ -109,7 +109,9 @@ final class AudioEngine {
             // tonhojd. Det ar skillnaden mellan "ett annat ljud" och "samma ljud
             // hogre upp", och portalen behover det forsta.
             var sample = sin(phase) + harmonic * sin(harmonicPhase)
-            if harmonic > 0 { sample /= 1 + harmonic }
+            if harmonic > 0 {
+                sample /= 1 + harmonic
+            }
             if noise > 0 {
                 rng ^= rng << 13
                 rng ^= rng >> 7

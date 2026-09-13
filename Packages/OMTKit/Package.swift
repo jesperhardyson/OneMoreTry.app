@@ -12,8 +12,8 @@ let package = Package(
         // Se CLAUDE.md. Det är vad som gor den testbar headless och Linux-ren.
         .target(
             name: "OMTCore",
-            swiftSettings: [.defaultIsolation(nil), .treatAllWarnings(as: .error)]
+            swiftSettings: [.defaultIsolation(nil), .treatAllWarnings(as: .error)],
         ),
         .testTarget(name: "OMTCoreTests", dependencies: ["OMTCore"]),
-    ]
+    ],
 )

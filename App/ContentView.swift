@@ -14,14 +14,14 @@ private struct Palette {
         channel: Color(white: 0.13),
         surface: Color(white: 0.30),
         character: Color(red: 0.36, green: 0.85, blue: 0.72),
-        portal: Color(red: 0.42, green: 0.68, blue: 0.98)
+        portal: Color(red: 0.42, green: 0.68, blue: 0.98),
     )
 
     static let impulse = Palette(
         channel: Color(red: 0.16, green: 0.12, blue: 0.19),
         surface: Color(red: 0.38, green: 0.31, blue: 0.35),
         character: Color(red: 0.98, green: 0.72, blue: 0.32),
-        portal: Color(red: 0.80, green: 0.44, blue: 0.95)
+        portal: Color(red: 0.80, green: 0.44, blue: 0.95),
     )
 
     static func `for`(_ mode: ControlMode) -> Palette {
@@ -50,12 +50,14 @@ struct ContentView: View {
             GameHost(
                 onFrame: { model.frame(at: $0) },
                 onTap: { model.tap(atUptime: $0) },
-                onRelease: { model.release(atUptime: $0) }
+                onRelease: { model.release(atUptime: $0) },
             )
             .ignoresSafeArea()
 
             hud
-            if showDebug { debugPanel }
+            if showDebug {
+                debugPanel
+            }
         }
         .preferredColorScheme(.dark)
         .onAppear { model.feedback.start() }
@@ -74,7 +76,7 @@ struct ContentView: View {
         func point(_ wx: Double, _ wy: Double) -> CGPoint {
             CGPoint(
                 x: (wx - camX) * scale,
-                y: originY + (t.channelHeight - wy) * scale
+                y: originY + (t.channelHeight - wy) * scale,
             )
         }
 
@@ -86,7 +88,7 @@ struct ContentView: View {
         // Kanalen
         context.fill(
             Path(rect(x: camX, y: 0, w: size.width / scale, h: t.channelHeight)),
-            with: .color(palette.channel)
+            with: .color(palette.channel),
         )
 
         // Ytorna
@@ -94,7 +96,7 @@ struct ContentView: View {
         for y in [0.0, t.channelHeight - surfaceThickness] {
             context.fill(
                 Path(rect(x: camX, y: y, w: size.width / scale, h: surfaceThickness)),
-                with: .color(palette.surface)
+                with: .color(palette.surface),
             )
         }
 
@@ -109,7 +111,7 @@ struct ContentView: View {
             let y = obstacle.surface == .floor ? 0 : t.channelHeight - obstacle.height
             context.fill(
                 Path(rect(x: obstacle.x, y: y, w: obstacle.width, h: obstacle.height)),
-                with: .color(dangerColor)
+                with: .color(dangerColor),
             )
         }
 
@@ -118,11 +120,11 @@ struct ContentView: View {
             x: model.state.x - t.characterWidth / 2,
             y: model.state.y - t.characterHeight / 2,
             w: t.characterWidth,
-            h: t.characterHeight
+            h: t.characterHeight,
         )
         context.fill(
             Path(body),
-            with: .color(model.state.alive ? palette.character : Color(white: 0.45))
+            with: .color(model.state.alive ? palette.character : Color(white: 0.45)),
         )
 
         // Bekraftelse pa att *du* bytte lage, i ~0,15 s. Lokal och lagkontrast
@@ -131,13 +133,12 @@ struct ContentView: View {
         if !reduceMotion,
            let changed = model.feedback.lastModeChangeStep,
            model.state.step >= changed,
-           model.state.step - changed < 36
-        {
+           model.state.step - changed < 36 {
             let age = Double(model.state.step - changed) / 36
             context.stroke(
                 Path(body.insetBy(dx: -2 * scale, dy: -2 * scale)),
                 with: .color(palette.character.opacity(0.55 * (1 - age))),
-                lineWidth: 0.45 * scale
+                lineWidth: 0.45 * scale,
             )
         }
     }
@@ -151,19 +152,19 @@ struct ContentView: View {
         tuning t: Tuning,
         scale: Double,
         rect: (Double, Double, Double, Double) -> CGRect,
-        point: (Double, Double) -> CGPoint
+        point: (Double, Double) -> CGPoint,
     ) {
         let palette = Palette.for(portal.mode)
         let bandWidth = 16.0
 
         context.fill(
             Path(rect(portal.x - bandWidth / 2, 0, bandWidth, t.channelHeight)),
-            with: .color(palette.portal.opacity(0.22))
+            with: .color(palette.portal.opacity(0.22)),
         )
         for x in [portal.x - bandWidth / 2, portal.x + bandWidth / 2 - 1.5] {
             context.fill(
                 Path(rect(x, 0, 1.5, t.channelHeight)),
-                with: .color(palette.portal)
+                with: .color(palette.portal),
             )
         }
 
@@ -171,7 +172,7 @@ struct ContentView: View {
         // gravitationslaget varannan uppat och varannan nedat.
         let count = 5
         var glyphs = Path()
-        for i in 0..<count {
+        for i in 0 ..< count {
             let cy = t.channelHeight * (Double(i) + 0.5) / Double(count)
             let up = portal.mode == .impulse ? true : i.isMultiple(of: 2)
             let tip = cy + (up ? 5 : -5)
@@ -240,15 +241,15 @@ struct ContentView: View {
                 }
                 .toggleStyle(.switch)
                 if model.portalsEnabled {
-                    slider("portalperiod", $model.portalPeriod, 1.5...12)
+                    slider("portalperiod", $model.portalPeriod, 1.5 ... 12)
                 }
                 if model.state.mode == .impulse || model.portalsEnabled {
-                    slider("impulsstyrka", $model.tuning.impulseFraction, 0.25...0.9)
-                    slider("hoppkapning", $model.tuning.impulseCutFraction, 0.05...1.0)
+                    slider("impulsstyrka", $model.tuning.impulseFraction, 0.25 ... 0.9)
+                    slider("hoppkapning", $model.tuning.impulseCutFraction, 0.05 ... 1.0)
                 }
-                slider("flipp-avtryck", $model.tuning.flipFootprint, 0.6...3.0)
-                slider("flipDuration", $model.tuning.flipDuration, 0.10...0.40)
-                slider("svårighet", $model.difficulty, 0...1)
+                slider("flipp-avtryck", $model.tuning.flipFootprint, 0.6 ... 3.0)
+                slider("flipDuration", $model.tuning.flipDuration, 0.10 ... 0.40)
+                slider("svårighet", $model.difficulty, 0 ... 1)
                 HStack {
                     Text("hastighet \(Int(model.tuning.scrollSpeed))")
                     Spacer()
@@ -267,7 +268,7 @@ struct ContentView: View {
     private func slider(
         _ label: String,
         _ value: Binding<Double>,
-        _ range: ClosedRange<Double>
+        _ range: ClosedRange<Double>,
     ) -> some View {
         HStack(spacing: 10) {
             Text(label)

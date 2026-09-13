@@ -62,7 +62,9 @@ final class GameModel {
         // vid aterkomst fran bakgrunden. Se CLAUDE.md.
         let elapsed = min(now - last, 0.25)
         lastFrameTime = now
-        if elapsed > 0 { frameRate = 1 / elapsed }
+        if elapsed > 0 {
+            frameRate = 1 / elapsed
+        }
 
         accumulator += elapsed
         while accumulator >= Simulator.dt {
@@ -139,7 +141,7 @@ final class GameModel {
         generateAhead()
         let result = Simulator.step(
             state, tuning: tuning, flip: flip, holding: isHolding,
-            obstacles: obstacles, portals: portals
+            obstacles: obstacles, portals: portals,
         )
         state = result.state
         for event in result.events {
@@ -207,8 +209,8 @@ final class GameModel {
                     surface: onFloor ? .floor : .ceiling,
                     x: nextSpawnX,
                     width: Self.obstacleWidth,
-                    height: height
-                )
+                    height: height,
+                ),
             )
             nextSpawnX += 460 - 190 * difficulty
         }

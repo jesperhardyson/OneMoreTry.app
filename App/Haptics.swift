@@ -8,7 +8,9 @@ import CoreHaptics
 @MainActor
 final class Haptics {
     private var engine: CHHapticEngine?
-    private var supported: Bool { CHHapticEngine.capabilitiesForHardware().supportsHaptics }
+    private var supported: Bool {
+        CHHapticEngine.capabilitiesForHardware().supportsHaptics
+    }
 
     func start() {
         guard supported, engine == nil else { return }
@@ -44,7 +46,7 @@ final class Haptics {
                     CHHapticEventParameter(parameterID: .hapticIntensity, value: event.intensity),
                     CHHapticEventParameter(parameterID: .hapticSharpness, value: event.sharpness),
                 ],
-                relativeTime: event.time
+                relativeTime: event.time,
             )
         }
         guard

@@ -1,15 +1,15 @@
-import Testing
 @testable import OMTCore
+import Testing
 
 // y mats till figurens CENTRUM. Kanalens inre ar [0, channelHeight].
 // Vilande pa golvet => y == characterHeight/2.
 // Vilande i taket   => y == channelHeight - characterHeight/2.
 
-@Test func characterRestingOnFloorStaysOnFloor() {
+@Test func `character resting on floor stays on floor`() {
     let t = Tuning.reference
     var s = SimState.initial(tuning: t)
 
-    for _ in 0..<240 {
+    for _ in 0 ..< 240 {
         s = Simulator.step(s, tuning: t, flip: false).state
     }
 
@@ -18,12 +18,12 @@ import Testing
     #expect(s.alive)
 }
 
-@Test func runningIntoAFloorObstacleKills() {
+@Test func `running into A floor obstacle kills`() {
     let t = Tuning.reference
     let wall = Obstacle(surface: .floor, x: 200, width: 20, height: 30)
     var s = SimState.initial(tuning: t)
 
-    while s.alive && s.x < 400 {
+    while s.alive, s.x < 400 {
         s = Simulator.step(s, tuning: t, flip: false, obstacles: [wall]).state
     }
 
@@ -32,14 +32,14 @@ import Testing
     #expect(s.x < wall.x + wall.width)
 }
 
-@Test func flippingToTheCeilingClearsAFloorObstacle() {
+@Test func `flipping to the ceiling clears A floor obstacle`() {
     let t = Tuning.reference
     // Tillrackligt lagt for att hinna upp: flippa direkt vid start.
     let wall = Obstacle(surface: .floor, x: 200, width: 20, height: 30)
     var s = SimState.initial(tuning: t)
     s = Simulator.step(s, tuning: t, flip: true, obstacles: [wall]).state
 
-    while s.alive && s.x < 400 {
+    while s.alive, s.x < 400 {
         s = Simulator.step(s, tuning: t, flip: false, obstacles: [wall]).state
     }
 
@@ -49,12 +49,12 @@ import Testing
 
 // --- Fysikkontrakt: testade mot analytisk sanning, inte mot implementationen ---
 
-@Test func flipFromRestCrossesTheChannelInFlipDuration() {
+@Test func `flip from rest crosses the channel in flip duration`() {
     let t = Tuning.reference
     var s = SimState.initial(tuning: t)
     s = Simulator.step(s, tuning: t, flip: true).state
 
-    while s.y < t.ceilingY && s.step < 10_000 {
+    while s.y < t.ceilingY, s.step < 10000 {
         s = Simulator.step(s, tuning: t, flip: false).state
     }
 
@@ -64,7 +64,7 @@ import Testing
     #expect(abs(seconds - t.flipDuration) / t.flipDuration < 0.02)
 }
 
-@Test func hoverAmplitudeMatchesTheAnalyticFormula() {
+@Test func `hover amplitude matches the analytic formula`() {
     // A = h\u{b7}T\u{b2}/(2\u{b7}t_f\u{b2})  dar h = usableHeight, T = inter-tap-intervall.
     // Den har formeln satter taket for hur trang en svavkorridor kan vara
     // och kopplar flipDuration till tap-takstaket. Se spec \u{a7}1.
@@ -78,11 +78,11 @@ import Testing
     var s = SimState.initial(tuning: t)
     s.y = t.channelHeight / 2
     s.gravity = .up
-    s.vy = -t.gravityMagnitude * T / 2   // periodiskt startvillkor
+    s.vy = -t.gravityMagnitude * T / 2 // periodiskt startvillkor
 
     var lo = Double.infinity
     var hi = -Double.infinity
-    for i in 0..<(40 * halfPeriodSteps) {
+    for i in 0 ..< (40 * halfPeriodSteps) {
         let flip = i > 0 && i % halfPeriodSteps == 0
         s = Simulator.step(s, tuning: t, flip: flip).state
         if i > 30 * halfPeriodSteps {
@@ -97,7 +97,7 @@ import Testing
     #expect(abs(measured / t.usableHeight - 0.161) < 0.01)
 }
 
-@Test func sweepDetectsABoxThatBothEndpointsMiss() {
+@Test func `sweep detects A box that both endpoints miss`() {
     // Skalet till att kollisionen ar svept och inte ett punkttest: bada
     // andpunkterna ligger utanfor ladan, men vagen gar rakt igenom den.
     let box = AABB(minX: 4, maxX: 6, minY: 4, maxY: 6)
@@ -110,24 +110,28 @@ import Testing
 /// Near-miss rapporteras nar figuren precis passerat ett hinders bakkant, inte
 /// medan den ar bredvid det: det ar ett val definierat ogonblick per hinder, och
 /// det ar da spelaren ska fa veta att hen klarade sig knappt.
-@Test func narrowlyClearingAnObstacleReportsANearMiss() {
+@Test func `narrowly clearing an obstacle reports A near miss`() {
     let t = Tuning.reference
     // Sa hogt att figuren i taket klarar det med 4 enheters marginal.
     let tall = Obstacle(
         surface: .floor,
         x: 300,
         width: 20,
-        height: t.channelHeight - t.characterHeight - 4
+        height: t.channelHeight - t.characterHeight - 4,
     )
     var s = SimState.initial(tuning: t)
     var sawNearMiss = false
 
     var result = Simulator.step(s, tuning: t, flip: true, obstacles: [tall])
     s = result.state
-    while s.alive && s.x < 420 {
+    while s.alive, s.x < 420 {
         result = Simulator.step(s, tuning: t, flip: false, obstacles: [tall])
         s = result.state
-        if result.events.contains(where: { if case .nearMiss = $0 { return true }; return false }) {
+        if result.events.contains(where: {
+            if case .nearMiss = $0 {
+                return true
+            }; return false
+        }) {
             sawNearMiss = true
         }
     }
@@ -136,7 +140,7 @@ import Testing
     #expect(sawNearMiss)
 }
 
-@Test func comfortablyClearingAnObstacleReportsNoNearMiss() {
+@Test func `comfortably clearing an obstacle reports no near miss`() {
     let t = Tuning.reference
     let low = Obstacle(surface: .floor, x: 300, width: 20, height: 25)
     var s = SimState.initial(tuning: t)
@@ -144,10 +148,14 @@ import Testing
 
     var result = Simulator.step(s, tuning: t, flip: true, obstacles: [low])
     s = result.state
-    while s.alive && s.x < 420 {
+    while s.alive, s.x < 420 {
         result = Simulator.step(s, tuning: t, flip: false, obstacles: [low])
         s = result.state
-        if result.events.contains(where: { if case .nearMiss = $0 { return true }; return false }) {
+        if result.events.contains(where: {
+            if case .nearMiss = $0 {
+                return true
+            }; return false
+        }) {
             sawNearMiss = true
         }
     }
@@ -156,17 +164,19 @@ import Testing
     #expect(!sawNearMiss)
 }
 
-@Test func dyingRecordsWhichSurfaceKilledYou() {
+@Test func `dying records which surface killed you`() {
     let t = Tuning.reference
     let wall = Obstacle(surface: .floor, x: 200, width: 20, height: 30)
     var s = SimState.initial(tuning: t)
     var cause: DeathCause?
 
-    while s.alive && s.x < 400 {
+    while s.alive, s.x < 400 {
         let result = Simulator.step(s, tuning: t, flip: false, obstacles: [wall])
         s = result.state
         for event in result.events {
-            if case let .died(_, deathCause) = event { cause = deathCause }
+            if case let .died(_, deathCause) = event {
+                cause = deathCause
+            }
         }
     }
 
@@ -178,7 +188,7 @@ import Testing
 // tecken. Integrerar en gang istallet for tva, vilket ger exakt sqrt(2) ganger
 // billigare svavande. Se docs/decision-log.md.
 
-@Test func impulseModeSetsVelocityRegardlessOfWhatItWas() {
+@Test func `impulse mode sets velocity regardless of what it was`() {
     var t = Tuning.reference
     t.mode = .impulse
     var s = SimState.initial(tuning: t)
@@ -186,7 +196,9 @@ import Testing
     // Fall en stund sa att vy hinner bli kraftigt negativ — men inte sa langt
     // att golvklampningen nollar den at oss och testet blir meningslost.
     s.y = t.channelHeight / 2
-    for _ in 0..<20 { s = Simulator.step(s, tuning: t, flip: false).state }
+    for _ in 0 ..< 20 {
+        s = Simulator.step(s, tuning: t, flip: false).state
+    }
     #expect(s.vy < -100)
     #expect(s.y > t.floorY)
 
@@ -196,19 +208,19 @@ import Testing
     #expect(abs(s.vy - t.impulseSpeed) < t.gravityMagnitude * Simulator.dt * 1.5)
 }
 
-@Test func impulseModeNeverFlipsGravity() {
+@Test func `impulse mode never flips gravity`() {
     var t = Tuning.reference
     t.mode = .impulse
     var s = SimState.initial(tuning: t)
     s.y = t.channelHeight / 2
 
-    for i in 0..<200 {
+    for i in 0 ..< 200 {
         s = Simulator.step(s, tuning: t, flip: i % 30 == 0).state
         #expect(s.gravity == .down)
     }
 }
 
-@Test func impulseHoverExcursionMatchesTheAnalyticFormula() {
+@Test func `impulse hover excursion matches the analytic formula`() {
     // Toppexkursion efter en impuls = v0^2 / (2g).
     var t = Tuning.reference
     t.mode = .impulse
@@ -244,16 +256,16 @@ private func peakRise(holdSteps: Int, tuning t: Tuning) -> Double {
     var i = 0
     repeat {
         let result = Simulator.step(
-            s, tuning: t, flip: i == 0, holding: i < holdSteps, obstacles: []
+            s, tuning: t, flip: i == 0, holding: i < holdSteps, obstacles: [],
         )
         s = result.state
         peak = max(peak, s.y)
         i += 1
-    } while s.vy > 0 && i < 5_000
+    } while s.vy > 0 && i < 5000
     return peak - start
 }
 
-@Test func releasingEarlyProducesALowerJump() {
+@Test func `releasing early produces A lower jump`() {
     var t = Tuning.reference
     t.mode = .impulse
 
@@ -264,31 +276,31 @@ private func peakRise(holdSteps: Int, tuning t: Tuning) -> Double {
     #expect(tap > 0)
 }
 
-@Test func holdingBeyondTheDecayPointAddsNothing() {
+@Test func `holding beyond the decay point adds nothing`() {
     var t = Tuning.reference
     t.mode = .impulse
 
     // Nar hastigheten fallit under kapningsnivan gor ett slapp ingenting,
     // sa hopphojden ar bunden av gravitationen — ingen timer behovs.
     let long = peakRise(holdSteps: 600, tuning: t)
-    let longer = peakRise(holdSteps: 2_000, tuning: t)
+    let longer = peakRise(holdSteps: 2000, tuning: t)
 
     #expect(abs(long - longer) < 0.001)
 }
 
-@Test func releasingWhenAlreadySlowDoesNotSpeedYouUp() {
+@Test func `releasing when already slow does not speed you up`() {
     var t = Tuning.reference
     t.mode = .impulse
     var s = SimState.initial(tuning: t)
     s.y = t.channelHeight / 2
-    s.vy = 5   // langsammare an kapningsnivan
+    s.vy = 5 // langsammare an kapningsnivan
 
     let after = Simulator.step(s, tuning: t, flip: false, holding: false).state
     #expect(after.vy < 5)
 }
 
-@Test func holdHasNoEffectInGravityFlipMode() {
-    let t = Tuning.reference   // .gravityFlip
+@Test func `hold has no effect in gravity flip mode`() {
+    let t = Tuning.reference // .gravityFlip
     var held = SimState.initial(tuning: t)
     var released = held
     held.y = t.channelHeight / 2
@@ -304,8 +316,8 @@ private func peakRise(holdSteps: Int, tuning t: Tuning) -> Double {
 // Geometry Dash-modellen: mekaniken byter mitt i korningen. Bytet ar sjalv den
 // svaraste fardigheten. Laget bor darfor i SimState, inte i Tuning.
 
-@Test func crossingAPortalChangesTheActiveMode() {
-    let t = Tuning.reference           // startar i .gravityFlip
+@Test func `crossing A portal changes the active mode`() {
+    let t = Tuning.reference // startar i .gravityFlip
     let portal = Portal(x: 300, mode: .impulse)
     var s = SimState.initial(tuning: t)
     #expect(s.mode == .gravityFlip)
@@ -316,7 +328,7 @@ private func peakRise(holdSteps: Int, tuning t: Tuning) -> Double {
     #expect(s.mode == .impulse)
 }
 
-@Test func enteringImpulseModeForcesGravityDown() {
+@Test func `entering impulse mode forces gravity down`() {
     let t = Tuning.reference
     let portal = Portal(x: 300, mode: .impulse)
     var s = SimState.initial(tuning: t)
@@ -333,7 +345,7 @@ private func peakRise(holdSteps: Int, tuning t: Tuning) -> Double {
     #expect(s.gravity == .down)
 }
 
-@Test func crossingAPortalEmitsAnEvent() {
+@Test func `crossing A portal emits an event`() {
     let t = Tuning.reference
     let portal = Portal(x: 300, mode: .impulse)
     var s = SimState.initial(tuning: t)
@@ -343,7 +355,9 @@ private func peakRise(holdSteps: Int, tuning t: Tuning) -> Double {
         let result = Simulator.step(s, tuning: t, flip: false, portals: [portal])
         s = result.state
         for event in result.events {
-            if case let .modeChanged(_, mode) = event { changes.append(mode) }
+            if case let .modeChanged(_, mode) = event {
+                changes.append(mode)
+            }
         }
     }
     // Exakt en gang: bytet maste bara pa ljud och haptik, och en portal bakom
