@@ -10,7 +10,7 @@ import Testing
     var s = SimState.initial(tuning: t)
 
     for _ in 0..<240 {
-        s = Simulator.step(s, tuning: t, flip: false)
+        s = Simulator.step(s, tuning: t, flip: false).state
     }
 
     #expect(s.y == t.characterHeight / 2)
@@ -24,7 +24,7 @@ import Testing
     var s = SimState.initial(tuning: t)
 
     while s.alive && s.x < 400 {
-        s = Simulator.step(s, tuning: t, flip: false, obstacles: [wall])
+        s = Simulator.step(s, tuning: t, flip: false, obstacles: [wall]).state
     }
 
     #expect(!s.alive)
@@ -37,10 +37,10 @@ import Testing
     // Tillrackligt lagt for att hinna upp: flippa direkt vid start.
     let wall = Obstacle(surface: .floor, x: 200, width: 20, height: 30)
     var s = SimState.initial(tuning: t)
-    s = Simulator.step(s, tuning: t, flip: true, obstacles: [wall])
+    s = Simulator.step(s, tuning: t, flip: true, obstacles: [wall]).state
 
     while s.alive && s.x < 400 {
-        s = Simulator.step(s, tuning: t, flip: false, obstacles: [wall])
+        s = Simulator.step(s, tuning: t, flip: false, obstacles: [wall]).state
     }
 
     #expect(s.alive)
@@ -52,10 +52,10 @@ import Testing
 @Test func flipFromRestCrossesTheChannelInFlipDuration() {
     let t = Tuning.reference
     var s = SimState.initial(tuning: t)
-    s = Simulator.step(s, tuning: t, flip: true)
+    s = Simulator.step(s, tuning: t, flip: true).state
 
     while s.y < t.ceilingY && s.step < 10_000 {
-        s = Simulator.step(s, tuning: t, flip: false)
+        s = Simulator.step(s, tuning: t, flip: false).state
     }
 
     let seconds = Double(s.step) * Simulator.dt
@@ -84,7 +84,7 @@ import Testing
     var hi = -Double.infinity
     for i in 0..<(40 * halfPeriodSteps) {
         let flip = i > 0 && i % halfPeriodSteps == 0
-        s = Simulator.step(s, tuning: t, flip: flip)
+        s = Simulator.step(s, tuning: t, flip: flip).state
         if i > 30 * halfPeriodSteps {
             lo = min(lo, s.y)
             hi = max(hi, s.y)
@@ -103,4 +103,72 @@ import Testing
     let box = AABB(minX: 4, maxX: 6, minY: 4, maxY: 6)
     #expect(Sweep.hits(box: box, fromX: 0, fromY: 0, toX: 10, toY: 10))
     #expect(!Sweep.hits(box: box, fromX: 0, fromY: 8, toX: 10, toY: 8))
+}
+
+// --- Handelser ---
+
+/// Near-miss rapporteras nar figuren precis passerat ett hinders bakkant, inte
+/// medan den ar bredvid det: det ar ett val definierat ogonblick per hinder, och
+/// det ar da spelaren ska fa veta att hen klarade sig knappt.
+@Test func narrowlyClearingAnObstacleReportsANearMiss() {
+    let t = Tuning.reference
+    // Sa hogt att figuren i taket klarar det med 4 enheters marginal.
+    let tall = Obstacle(
+        surface: .floor,
+        x: 300,
+        width: 20,
+        height: t.channelHeight - t.characterHeight - 4
+    )
+    var s = SimState.initial(tuning: t)
+    var sawNearMiss = false
+
+    var result = Simulator.step(s, tuning: t, flip: true, obstacles: [tall])
+    s = result.state
+    while s.alive && s.x < 420 {
+        result = Simulator.step(s, tuning: t, flip: false, obstacles: [tall])
+        s = result.state
+        if result.events.contains(where: { if case .nearMiss = $0 { return true }; return false }) {
+            sawNearMiss = true
+        }
+    }
+
+    #expect(s.alive)
+    #expect(sawNearMiss)
+}
+
+@Test func comfortablyClearingAnObstacleReportsNoNearMiss() {
+    let t = Tuning.reference
+    let low = Obstacle(surface: .floor, x: 300, width: 20, height: 25)
+    var s = SimState.initial(tuning: t)
+    var sawNearMiss = false
+
+    var result = Simulator.step(s, tuning: t, flip: true, obstacles: [low])
+    s = result.state
+    while s.alive && s.x < 420 {
+        result = Simulator.step(s, tuning: t, flip: false, obstacles: [low])
+        s = result.state
+        if result.events.contains(where: { if case .nearMiss = $0 { return true }; return false }) {
+            sawNearMiss = true
+        }
+    }
+
+    #expect(s.alive)
+    #expect(!sawNearMiss)
+}
+
+@Test func dyingRecordsWhichSurfaceKilledYou() {
+    let t = Tuning.reference
+    let wall = Obstacle(surface: .floor, x: 200, width: 20, height: 30)
+    var s = SimState.initial(tuning: t)
+    var cause: DeathCause?
+
+    while s.alive && s.x < 400 {
+        let result = Simulator.step(s, tuning: t, flip: false, obstacles: [wall])
+        s = result.state
+        for event in result.events {
+            if case let .died(_, deathCause) = event { cause = deathCause }
+        }
+    }
+
+    #expect(cause == .floorObstacle)
 }

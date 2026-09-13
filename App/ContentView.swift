@@ -24,6 +24,7 @@ struct ContentView: View {
             if showDebug { debugPanel }
         }
         .preferredColorScheme(.dark)
+        .onAppear { model.feedback.start() }
     }
 
     // MARK: - Rendering

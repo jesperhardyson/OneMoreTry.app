@@ -7,7 +7,10 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		2C23A342032204E358B20382 /* Feedback.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD5BCFCF0D3EF33618631EE3 /* Feedback.swift */; };
 		3418B01FD7E5A97B4425EE49 /* GameModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20546CB2F1D2007588B90A7C /* GameModel.swift */; };
+		34510F5886734B99A3954281 /* Audio.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ADAF4A5BCBC3F7C9778896F /* Audio.swift */; };
+		373AA541AB8F780F05AAFBBC /* Haptics.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6C4D3EEEB18E8AE70FFE6E33 /* Haptics.swift */; };
 		3F36B4BBD96C3D8C39D9C2BD /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EB96B4B38B981C77314B5DFC /* ContentView.swift */; };
 		5C1227D7E355CE12B4BE7EC8 /* OMTCore in Frameworks */ = {isa = PBXBuildFile; productRef = 463590BEDD54818A083FDC79 /* OMTCore */; };
 		A2487AD24B9F4E091AAAFCE9 /* GameHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = D6043762182EB519FB84625C /* GameHost.swift */; };
@@ -15,13 +18,16 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		1ADAF4A5BCBC3F7C9778896F /* Audio.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Audio.swift; sourceTree = "<group>"; };
 		20546CB2F1D2007588B90A7C /* GameModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameModel.swift; sourceTree = "<group>"; };
+		6C4D3EEEB18E8AE70FFE6E33 /* Haptics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Haptics.swift; sourceTree = "<group>"; };
 		99E677DFE17563ABA51767CA /* OneMoreTryApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OneMoreTryApp.swift; sourceTree = "<group>"; };
 		A32AFE8DF5C00BB56AFC038C /* OMTKit */ = {isa = PBXFileReference; lastKnownFileType = folder; name = OMTKit; path = Packages/OMTKit; sourceTree = SOURCE_ROOT; };
 		A6C4466AC914046732EB4992 /* OneMoreTry.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = OneMoreTry.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		B92321B841026956326BA18D /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		D6043762182EB519FB84625C /* GameHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameHost.swift; sourceTree = "<group>"; };
 		EB96B4B38B981C77314B5DFC /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		FD5BCFCF0D3EF33618631EE3 /* Feedback.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Feedback.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -56,9 +62,12 @@
 		7A11580563AAF81DD8F153A0 /* App */ = {
 			isa = PBXGroup;
 			children = (
+				1ADAF4A5BCBC3F7C9778896F /* Audio.swift */,
 				EB96B4B38B981C77314B5DFC /* ContentView.swift */,
+				FD5BCFCF0D3EF33618631EE3 /* Feedback.swift */,
 				D6043762182EB519FB84625C /* GameHost.swift */,
 				20546CB2F1D2007588B90A7C /* GameModel.swift */,
+				6C4D3EEEB18E8AE70FFE6E33 /* Haptics.swift */,
 				B92321B841026956326BA18D /* Info.plist */,
 				99E677DFE17563ABA51767CA /* OneMoreTryApp.swift */,
 			);
@@ -137,9 +146,12 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				34510F5886734B99A3954281 /* Audio.swift in Sources */,
 				3F36B4BBD96C3D8C39D9C2BD /* ContentView.swift in Sources */,
+				2C23A342032204E358B20382 /* Feedback.swift in Sources */,
 				A2487AD24B9F4E091AAAFCE9 /* GameHost.swift in Sources */,
 				3418B01FD7E5A97B4425EE49 /* GameModel.swift in Sources */,
+				373AA541AB8F780F05AAFBBC /* Haptics.swift in Sources */,
 				D175AF20D7B439A59996F28E /* OneMoreTryApp.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

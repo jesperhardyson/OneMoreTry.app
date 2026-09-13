@@ -16,6 +16,8 @@ final class GameModel {
     private(set) var lastDistance: Double = 0
     private(set) var frameRate: Double = 0
 
+    let feedback = Feedback()
+
     private var accumulator: Double = 0
     private var lastFrameTime: CFTimeInterval?
     private var runStartUptime: CFTimeInterval = 0
@@ -84,7 +86,11 @@ final class GameModel {
         }
 
         generateAhead()
-        state = Simulator.step(state, tuning: tuning, flip: flip, obstacles: obstacles)
+        let result = Simulator.step(state, tuning: tuning, flip: flip, obstacles: obstacles)
+        state = result.state
+        for event in result.events {
+            feedback.emit(event)
+        }
     }
 
     // MARK: - Procedurell bana

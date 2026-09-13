@@ -1,6 +1,6 @@
 // OMTCore — simulering. Importerar ingenting. Se CLAUDE.md.
 
-/// Gravitationens riktning. Bin\u{e4}rt tillst\u{e5}nd — det \u{e4}r hela po\u{e4}ngen med mekaniken.
+/// Gravitationens riktning. Binart tillstand — det ar hela poangen med mekaniken.
 public enum Sign: Sendable {
     case down, up
 
@@ -8,9 +8,9 @@ public enum Sign: Sendable {
     var acceleration: Double { self == .down ? -1 : 1 }
 }
 
-/// Trimkonstanter. Det justerbara v\u{e4}rdet \u{e4}r `flipFootprint` — hur l\u{e5}ngt figuren
-/// f\u{e4}rdas horisontellt under en full kanalkorsning, m\u{e4}tt i kanalh\u{f6}jder.
-/// `flipDuration` och scrollhastigheten h\u{e4}rleds ur den. Se spec \u{a7}15.
+/// Trimkonstanter. Det justerbara vardet ar `flipFootprint` — hur langt figuren
+/// fardas horisontellt under en full kanalkorsning, matt i kanalhojder.
+/// Scrollhastigheten harleds ur den. Se docs/decision-log.md.
 public struct Tuning: Sendable {
     public var channelHeight: Double
     public var characterHeight: Double
@@ -32,20 +32,23 @@ public struct Tuning: Sendable {
         self.flipFootprint = flipFootprint
     }
 
-    /// Accelerationens storlek, h\u{e4}rledd s\u{e5} att en korsning fr\u{e5}n vila tar exakt
-    /// `flipDuration`: h = \u{bd}\u{b7}g\u{b7}t\u{b2}  =>  g = 2h/t\u{b2}
+    /// Avstandet figurens centrum faktiskt kan rora sig mellan ytorna.
+    public var usableHeight: Double { channelHeight - characterHeight }
+
+    /// Harledd sa att en korsning fran vila tar exakt `flipDuration`:
+    /// h = 1/2 * g * t^2  =>  g = 2h/t^2
     public var gravityMagnitude: Double {
         2 * usableHeight / (flipDuration * flipDuration)
     }
 
-    /// Avst\u{e5}ndet figurens centrum faktiskt kan r\u{f6}ra sig mellan ytorna.
-    public var usableHeight: Double { channelHeight - characterHeight }
-
     public var floorY: Double { characterHeight / 2 }
     public var ceilingY: Double { channelHeight - characterHeight / 2 }
-
     public var scrollSpeed: Double { flipFootprint * channelHeight / flipDuration }
 
+    /// Vertikal marginal under vilken en passage raknas som en near-miss.
+    public var nearMissClearance: Double { usableHeight * 0.10 }
+
+    /// Validerad genom spel pa enhet 2026-09-13. Se docs/decision-log.md.
     public static let reference = Tuning(
         channelHeight: 100,
         characterHeight: 20,
@@ -55,7 +58,7 @@ public struct Tuning: Sendable {
     )
 }
 
-/// `step` \u{e4}r sanningen, inte `t`. 1.0/240.0 \u{e4}r inte exakt representerbart, s\u{e5}
+/// `step` ar sanningen, inte `t`. 1.0/240.0 ar inte exakt representerbart, sa
 /// `t += dt` driver. Se CLAUDE.md.
 public struct SimState: Sendable {
     public var step: UInt32
@@ -88,11 +91,16 @@ public enum Simulator {
         tuning: Tuning,
         flip: Bool,
         obstacles: [Obstacle] = []
-    ) -> SimState {
+    ) -> StepResult {
         var s = state
-        guard s.alive else { return s }
+        guard s.alive else { return StepResult(state: s, events: []) }
 
-        if flip { s.gravity = s.gravity.flipped }
+        var events: [RunEvent] = []
+
+        if flip {
+            s.gravity = s.gravity.flipped
+            events.append(.flipped(step: s.step, direction: s.gravity))
+        }
 
         let x0 = s.x
         let y0 = s.y
@@ -111,19 +119,37 @@ public enum Simulator {
 
         let hw = tuning.characterWidth / 2
         let hh = tuning.characterHeight / 2
+
         for obstacle in obstacles {
-            let box = obstacle
-                .box(channelHeight: tuning.channelHeight)
-                .expanded(byHalfWidth: hw, halfHeight: hh)
+            let raw = obstacle.box(channelHeight: tuning.channelHeight)
+            let box = raw.expanded(byHalfWidth: hw, halfHeight: hh)
+
             if Sweep.hits(box: box, fromX: x0, fromY: y0, toX: s.x, toY: s.y) {
                 s.alive = false
                 s.x = x0
                 s.y = y0
-                break
+                events.append(
+                    .died(
+                        step: s.step,
+                        cause: obstacle.surface == .floor ? .floorObstacle : .ceilingObstacle
+                    )
+                )
+                return StepResult(state: s, events: events)
+            }
+
+            // Near-miss nar figurens bakkant passerar hindrets bakkant: ett val
+            // definierat ogonblick per hinder, och ratt tidpunkt for aterkoppling.
+            if x0 - hw <= raw.maxX, s.x - hw > raw.maxX {
+                let clearance = obstacle.surface == .floor
+                    ? (s.y - hh) - raw.maxY
+                    : raw.minY - (s.y + hh)
+                if clearance >= 0, clearance <= tuning.nearMissClearance {
+                    events.append(.nearMiss(step: s.step, clearance: clearance))
+                }
             }
         }
 
         s.step += 1
-        return s
+        return StepResult(state: s, events: events)
     }
 }
