@@ -27,6 +27,8 @@ public struct Tuning: Sendable {
     public var characterWidth: Double
     public var flipDuration: Double
     public var flipFootprint: Double
+    /// Laget en korning *startar* i. Det aktiva laget bor i `SimState`,
+    /// eftersom portaler andrar det mitt i korningen.
     public var mode: ControlMode
     /// Impulsens styrka som andel av farten vid en full korsning fran vila.
     /// 0,5 ger en exkursion pa 25 % av kanalen per tap.
@@ -98,18 +100,26 @@ public struct SimState: Sendable {
     public var vy: Double
     public var gravity: Sign
     public var alive: Bool
+    public var mode: ControlMode
 
-    public init(step: UInt32, x: Double, y: Double, vy: Double, gravity: Sign, alive: Bool) {
+    public init(
+        step: UInt32, x: Double, y: Double, vy: Double,
+        gravity: Sign, alive: Bool, mode: ControlMode = .gravityFlip
+    ) {
         self.step = step
         self.x = x
         self.y = y
         self.vy = vy
         self.gravity = gravity
         self.alive = alive
+        self.mode = mode
     }
 
     public static func initial(tuning: Tuning) -> SimState {
-        SimState(step: 0, x: 0, y: tuning.floorY, vy: 0, gravity: .down, alive: true)
+        SimState(
+            step: 0, x: 0, y: tuning.floorY, vy: 0,
+            gravity: .down, alive: true, mode: tuning.mode
+        )
     }
 }
 
@@ -122,7 +132,8 @@ public enum Simulator {
         tuning: Tuning,
         flip: Bool,
         holding: Bool = false,
-        obstacles: [Obstacle] = []
+        obstacles: [Obstacle] = [],
+        portals: [Portal] = []
     ) -> StepResult {
         var s = state
         guard s.alive else { return StepResult(state: s, events: []) }
@@ -130,7 +141,7 @@ public enum Simulator {
         var events: [RunEvent] = []
 
         if flip {
-            switch tuning.mode {
+            switch s.mode {
             case .gravityFlip:
                 s.gravity = s.gravity.flipped
                 events.append(.flipped(step: s.step, direction: s.gravity))
@@ -144,7 +155,7 @@ public enum Simulator {
         // Mario-kapning: impulsen fyrar med full styrka vid nedtryck, men
         // slapper fingret tidigt kapas farten. Noll extra latens — till skillnad
         // fran ladda-och-slapp, som lagger latens dar spelaren har 150 ms.
-        if tuning.mode == .impulse, !holding, s.vy > tuning.impulseCutSpeed {
+        if s.mode == .impulse, !holding, s.vy > tuning.impulseCutSpeed {
             s.vy = tuning.impulseCutSpeed
         }
 
@@ -161,6 +172,16 @@ public enum Simulator {
         } else if s.y >= tuning.ceilingY {
             s.y = tuning.ceilingY
             s.vy = 0
+        }
+
+        // Portalen passeras under steget; det nya laget galler fran nasta steg.
+        for portal in portals where x0 <= portal.x && s.x > portal.x {
+            guard s.mode != portal.mode else { continue }
+            s.mode = portal.mode
+            // Impulslaget forutsatter gravitation nedat. Utan det skulle ett tap
+            // gora motsatsen till vad spelaren forvantar sig direkt efter bytet.
+            if portal.mode == .impulse { s.gravity = .down }
+            events.append(.modeChanged(step: s.step, mode: portal.mode))
         }
 
         let hw = tuning.characterWidth / 2

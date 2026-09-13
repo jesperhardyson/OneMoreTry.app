@@ -83,3 +83,21 @@ enum Sweep {
         return tMin <= tMax
     }
 }
+
+
+/// En punkt dar mekaniken byter. Geometry Dash-modellen: bytet ar sjalv den
+/// svaraste fardigheten, och det ger 60-sekunderskorningen en dramatisk form
+/// som en hastighetsramp ensam inte ger.
+///
+/// Bytet maste vara omisskannligt — figurens utseende, paletten och ljudets
+/// tonhojd samtidigt. En spelare som misslyckas for att hen trodde fel lage var
+/// aktivt skyller pa spelet, och hela premissen ar att doden alltid ar ditt fel.
+public struct Portal: Sendable {
+    public var x: Double
+    public var mode: ControlMode
+
+    public init(x: Double, mode: ControlMode) {
+        self.x = x
+        self.mode = mode
+    }
+}

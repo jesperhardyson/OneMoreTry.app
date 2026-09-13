@@ -299,3 +299,54 @@ private func peakRise(holdSteps: Int, tuning t: Tuning) -> Double {
 
     #expect(held.vy == released.vy)
 }
+
+// --- Portaler ---
+// Geometry Dash-modellen: mekaniken byter mitt i korningen. Bytet ar sjalv den
+// svaraste fardigheten. Laget bor darfor i SimState, inte i Tuning.
+
+@Test func crossingAPortalChangesTheActiveMode() {
+    let t = Tuning.reference           // startar i .gravityFlip
+    let portal = Portal(x: 300, mode: .impulse)
+    var s = SimState.initial(tuning: t)
+    #expect(s.mode == .gravityFlip)
+
+    while s.x < 400 {
+        s = Simulator.step(s, tuning: t, flip: false, portals: [portal]).state
+    }
+    #expect(s.mode == .impulse)
+}
+
+@Test func enteringImpulseModeForcesGravityDown() {
+    let t = Tuning.reference
+    let portal = Portal(x: 300, mode: .impulse)
+    var s = SimState.initial(tuning: t)
+
+    // Flippa till taket forst, sa att gravitationen pekar uppat vid portalen.
+    s = Simulator.step(s, tuning: t, flip: true, portals: [portal]).state
+    #expect(s.gravity == .up)
+
+    while s.x < 400 {
+        s = Simulator.step(s, tuning: t, flip: false, portals: [portal]).state
+    }
+    // Impulslaget forutsatter gravitation nedat — annars faller spelaren uppat
+    // och ett tap gor motsatsen till vad hen forvantar sig.
+    #expect(s.gravity == .down)
+}
+
+@Test func crossingAPortalEmitsAnEvent() {
+    let t = Tuning.reference
+    let portal = Portal(x: 300, mode: .impulse)
+    var s = SimState.initial(tuning: t)
+    var changes: [ControlMode] = []
+
+    while s.x < 400 {
+        let result = Simulator.step(s, tuning: t, flip: false, portals: [portal])
+        s = result.state
+        for event in result.events {
+            if case let .modeChanged(_, mode) = event { changes.append(mode) }
+        }
+    }
+    // Exakt en gang: bytet maste bara pa ljud och haptik, och en portal bakom
+    // dig far aldrig fyra igen.
+    #expect(changes == [.impulse])
+}

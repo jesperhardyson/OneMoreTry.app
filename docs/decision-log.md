@@ -115,3 +115,78 @@ analog axel.
   kan vara för snävt jämfört med hur länge en människa faktiskt håller ett tap.
 - Om impulsläget blir standard: §0:s låsta beslut "gravitationsvänd" är inte längre
   sant, och specen behöver ett större omtag än en paragraf.
+
+---
+
+## 2026-09-13 — Båda mekanikerna behålls, som portaler mitt i banan (M2, fjärde passet)
+
+Impulsläget kändes bättre på enhet, men i stället för att ersätta gravitationsvändningen
+**behålls båda som två banläges-typer**, med Geometry Dash-modellen: portaler byter
+mekanik mitt i körningen.
+
+### Varför det är rätt
+
+Det löser kostnaden som noterades när svävandet föll. Tier-stegen toppade vid fyra
+luftflippar, så tier 5–6 kunde bara bli svårare genom snävare marginaler och högre
+tempo — samma färdighet under mer press, inte en ny färdighet. Två mekaniker ger
+tillbaka distinkta färdigheter att lära sig.
+
+De är genuint komplementära, inte omskinnade versioner av varandra:
+
+| | Gravitationsvänd | Impuls |
+|---|---|---|
+| Färdighet | Precision i ytväxling, luftkorrigering | Uthållig höjdkontroll |
+| Analog axel | ingen | variabel hopphöjd |
+| Taket | 4 luftflippar i följd | hoppkapningens nyans |
+
+### Konsekvenser
+
+- **Aktivt läge bor i `SimState`, inte i `Tuning`.** `Tuning.mode` är nu bara startläget.
+- **Att gå in i impulsläget tvingar gravitationen nedåt.** Annars gör ett tap motsatsen
+  till vad spelaren förväntar sig direkt efter bytet.
+- **Innehållspartitionen är den verkliga kostnaden**, inte koden. Men beam
+  search-validatorn kör mot den riktiga simuleringen, så att köra den en gång per läge
+  och tagga varje mönster med vilka mekaniker det är rättvist under kostar inget extra i
+  författande. Dubbelanvändbara mönster faller ut gratis.
+- **Största risken är lägesförvirring.** En spelare som misslyckas för att hen trodde fel
+  läge var aktivt skyller på spelet, och hela premissen är att döden alltid är ditt fel.
+  Bytet måste bära på figurens utseende, paletten *och* ljudets tonhöjd samtidigt.
+
+---
+
+# Läge just nu (2026-09-13, sessionsslut)
+
+## Klart och pushat
+
+- `OMTCore`: kinematik, svept AABB, händelser, near-miss, dödsorsak, impulsläge,
+  variabel hopphöjd (Mario-kapning), portaler. **19 tester gröna**, körs headless på mac.
+- App: M1-prototyp med Canvas, procedurella hinder, trim-panel med reglage, syntetiserat
+  ljud och haptik, press/release. Kör på iPhone 17 Pro.
+- Spec och beslutslogg uppdaterade till och med variabel hopphöjd.
+
+## Nästa steg, i ordning
+
+1. **Koppla portaler till appen** — de finns i kärnan men inget genererar, ritar eller
+   ljudsätter dem än. Behövs: generering i `GameModel.generateAhead()`, ritning i
+   `ContentView.draw`, och `.modeChanged` i `Feedback` (eget ljud, egen palett, egen
+   figurfärg — se lägesförvirringsrisken ovan).
+2. **Uppdatera spec §0 och §1** — "gravitationsvänd" är inte längre ett låst beslut utan
+   halva spelet. Portaler behöver ett eget avsnitt.
+3. **Trimma `impulseCutFraction`** — står på 0,35 som gissning. Fönstret för ett "kort"
+   tryck är ~70 ms, vilket kan vara snävare än hur länge en människa faktiskt håller.
+4. **Kör den riktiga grinden** — tre icke-byggare, 30 försök frivilligt, en återvänder
+   nästa dag. Den är fortfarande inte körd.
+
+## Kommandon
+
+```bash
+swift test --package-path Packages/OMTKit          # 19 tester, ~1 ms
+xcodegen generate                                  # efter nya filer i App/
+xcodebuild build -project OneMoreTry.xcodeproj -scheme OneMoreTry \
+  -destination 'platform=iOS,id=CBE41E7B-EEF5-5741-92FA-489E240C17C7' \
+  -allowProvisioningUpdates -derivedDataPath .build/dd
+xcrun devicectl device install app --device CBE41E7B-EEF5-5741-92FA-489E240C17C7 \
+  "$(find .build/dd/Build/Products -name OneMoreTry.app -maxdepth 3 | head -1)"
+```
+
+Telefonen måste vara upplåst för `process launch`.

@@ -16,6 +16,7 @@ public enum RunEvent: Sendable, Equatable {
     /// ogonblicket spelaren lar sig toleranserna. Se spec \u{a7}3.
     case nearMiss(step: UInt32, clearance: Double)
     case died(step: UInt32, cause: DeathCause)
+    case modeChanged(step: UInt32, mode: ControlMode)
 }
 
 /// Synkron. Anvand inte `AsyncStream` — hopp genom cooperative pool ger obunden
