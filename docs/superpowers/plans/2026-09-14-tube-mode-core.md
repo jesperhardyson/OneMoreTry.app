@@ -12,7 +12,7 @@
 
 ## Global Constraints
 
-- `OMTCore` imports nothing — not Foundation, not UIKit, not Metal. `sqrt`/`.squareRoot()` is the only allowed non-arithmetic math; no `sin`/`cos`/`pow`/`exp`/`atan2`.
+- `OMTCore` imports nothing — not Foundation, not UIKit, not Metal. No transcendentals in the step loop (`sin`/`cos`/`pow`/`exp`/`atan2`) — libm isn't correctly rounded and differs in the last ulp between platforms. `sqrt`/`.squareRoot()` and IEEE-754 round-to-integral operations (`.rounded()`, `.rounded(.down)`, `.rounded(.up)`) are fine: both are exactly-specified hardware operations with no libm approximation, unlike the transcendentals above.
 - No `Set`/`Dictionary` iteration anywhere in `OMTCore`. Arrays only.
 - `sort()` (if ever needed) requires a total-order comparator; not used in this plan.
 - Never `shuffled(using:)` or `Double.random(in:using:)`. Not used in this plan (no randomness needed).
