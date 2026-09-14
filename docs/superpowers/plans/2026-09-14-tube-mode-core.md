@@ -614,13 +614,13 @@ git commit -m "feat: add tube wall-obstacle collision"
 ```swift
 @Test func `entering tube mode sets down wall to zero`() {
     let t = Tuning.reference
-    let portal = Portal(x: 300, mode: .tube)
+    // Portalen ligger precis vid starten: korsningen sker redan pa forsta
+    // steget, sa inget hinner drifta innan mappningen lases av.
+    let portal = Portal(x: 0.001, mode: .tube)
     var s = SimState.initial(tuning: t)
     s.y = t.floorY
 
-    while s.x < 400 {
-        s = Simulator.step(s, tuning: t, flip: false, portals: [portal]).state
-    }
+    s = Simulator.step(s, tuning: t, flip: false, portals: [portal]).state
 
     #expect(s.mode == .tube)
     #expect(s.downWall == 0)
@@ -628,18 +628,17 @@ git commit -m "feat: add tube wall-obstacle collision"
 
 @Test func `portal transitions preserve relative position entering the tube`() {
     let t = Tuning.reference
-    let portal = Portal(x: 300, mode: .tube)
+    let portal = Portal(x: 0.001, mode: .tube)
     var s = SimState.initial(tuning: t)
     s.y = t.ceilingY
     s.vy = -40 // nedat, sa klampen vid taket inte nollar farten samma steg
 
-    while s.x < 400 {
-        s = Simulator.step(s, tuning: t, flip: false, portals: [portal]).state
-    }
+    s = Simulator.step(s, tuning: t, flip: false, portals: [portal]).state
 
     #expect(s.mode == .tube)
-    // Tak -> vagg 2. En liten drift fran ett steg kanalfysik fore korsningen
-    // (tyngdkraften hann paverka vy) racker for att 1e-9 vore for strikt.
+    // Tak -> vagg 2. Ett enda steg kanalfysik hinner paverka y/vy nagot
+    // innan mappningen lases av (tyngdkraften pa -40 ger en liten forskjutning
+    // fran exakt taket) — se rakningen i den brief-lankade motiveringen.
     #expect(abs(s.theta - 2) < 0.01)
     #expect(s.vTheta < 0)
     #expect(s.downWall == 0)
@@ -648,19 +647,18 @@ git commit -m "feat: add tube wall-obstacle collision"
 @Test func `portal transitions preserve relative position leaving the tube`() {
     var t = Tuning.reference
     t.mode = .tube
-    let portal = Portal(x: 300, mode: .gravityFlip)
+    let portal = Portal(x: 0.001, mode: .gravityFlip)
     var s = SimState.initial(tuning: t)
     s.theta = 3
-    s.downWall = 3 // redan pa vaggen: ingen egen vinkelfart fran fysikaccelerationen
-    s.vTheta = -20
+    s.downWall = 3 // redan pa vaggen: klampen i tubintegrationen haller
+    // theta/vTheta exakt pa 3/0 aven efter ett integrationssteg.
 
-    while s.x < 400 {
-        s = Simulator.step(s, tuning: t, flip: false, portals: [portal]).state
-    }
+    s = Simulator.step(s, tuning: t, flip: false, portals: [portal]).state
 
     #expect(s.mode == .gravityFlip)
-    // Vagg 3 -> mitten.
-    #expect(abs(s.y - (t.floorY + t.usableHeight / 2)) < 0.01)
+    // Vagg 3 -> mitten, med nollfart eftersom figuren vilade pa vaggen.
+    #expect(abs(s.y - (t.floorY + t.usableHeight / 2)) < 1e-9)
+    #expect(s.vy == 0)
     #expect(s.gravity == .down)
 }
 ```
