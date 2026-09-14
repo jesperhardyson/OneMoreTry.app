@@ -40,7 +40,7 @@
 - Test: `Packages/OMTKit/Tests/OMTCoreTests/TubeTests.swift`
 
 **Interfaces:**
-- Produces: `Angle.wrap(_ theta: Double) -> Double` (normalizes to `[0, 4)`), `Angle.wrappedDelta(_ theta: Double, _ w: Double) -> Double` (shortest signed distance from `theta` to `w`, in `[-2, 2]`).
+- Produces: `Angle.wrap(_ theta: Double) -> Double` (normalizes to `[0, 4)`), `Angle.wrappedDelta(_ theta: Double, _ w: Double) -> Double` (shortest signed distance from `theta` to `w`, in `[-2, 2)`).
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -67,8 +67,12 @@ import Testing
 @Test func `wrapped delta finds the shortest signed distance to a wall`() {
     #expect(Angle.wrappedDelta(0.5, 0) == 0.5)
     #expect(Angle.wrappedDelta(3.5, 0) == -0.5)
-    #expect(Angle.wrappedDelta(0.1, 3.9) == 0.2)
-    // Symmetriskt intrade: alltid -2, aldrig +2. Se spec §4.2.
+    // 0.125/3.875/0.25 ar exakt representerbara i binart flyttal (2^-3, 31/8,
+    // 2^-2), sa testet paverkas inte av flyttalsbrus fran subtraktionen —
+    // 0.1/3.9 skulle inte vara det.
+    #expect(Angle.wrappedDelta(0.125, 3.875) == 0.25)
+    // Symmetriskt intrade: alltid -2, aldrig +2, oavsett argumentordning.
+    // Se spec §4.2.
     #expect(Angle.wrappedDelta(2, 0) == -2)
     #expect(Angle.wrappedDelta(0, 2) == -2)
 }
@@ -104,13 +108,18 @@ enum Angle {
         return t
     }
 
-    /// Kortaste signerade avstandet fran `theta` till vagg `w`, i [-2, 2].
-    /// Vid exakt motsatt vagg (avstand 2 at bada hallen) ger `.rounded()`
-    /// (toNearestOrAwayFromZero) alltid -2, aldrig +2 — se
+    /// Kortaste signerade avstandet fran `theta` till vagg `w`, normaliserat
+    /// till [-2, 2). Halvoppet, inte symmetriskt: `.rounded()` (round to
+    /// nearest, ties away from zero) ar antisymmetrisk i sitt argument och
+    /// ger -2 for ena argumentordningen men +2 for den andra vid exakt
+    /// motsatt vagg — de tva representerar samma vinkel (2 ≡ -2 mod 4) och
+    /// maste darfor mappas till samma varde. `.rounded(.down)` (golv) pa
+    /// `(d + 2) / 4` gor det: bada -2 och +2 som ravarde hamnar i samma
+    /// intervallhalva och normaliseras till -2. Se
     /// `symmetric entry falls in tap direction` for varfor det spelar roll.
     static func wrappedDelta(_ theta: Double, _ w: Double) -> Double {
         let d = theta - w
-        return d - 4 * (d / 4).rounded()
+        return d - 4 * ((d + 2) / 4).rounded(.down)
     }
 }
 ```
