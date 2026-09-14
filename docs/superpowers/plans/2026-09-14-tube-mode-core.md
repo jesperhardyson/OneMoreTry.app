@@ -436,27 +436,31 @@ git commit -m "feat: add tube-mode physics (acceleration, tap, wall clamp)"
 }
 
 @Test func `corner overlaps both adjacent walls`() {
+    // Korrigerad 2026-09-14 efter fardigbranchens slutgranskning: den ursprungliga
+    // versionen placerade figuren pa en vaggcentrum (theta = 1.0), inte i ett horn,
+    // och lasta darmed den motsatta egenskapen av den spec §3.7 namnger. Se
+    // docs/decision-log.md 2026-09-14.
     var t = Tuning.reference
     t.mode = .tube
     var s = SimState.initial(tuning: t)
-    s.theta = 1.0 // exakt pa vagg 1: bade vagg 0 och vagg 2 ligger 1 kvartsvarv bort
-    s.downWall = 1
+    s.theta = 0.5 // hornet mellan vagg 0 och vagg 1: bada ligger inom threshold 0,6
+    s.downWall = 0
     let wall0 = WallObstacle(wall: 0, x: s.x, width: 4)
-    let wall2 = WallObstacle(wall: 2, x: s.x, width: 4)
+    let wall1 = WallObstacle(wall: 1, x: s.x, width: 4)
 
     let hit0 = Sweep.hitsWall(
         wall: 0, angularHalfWidth: t.angularHalfWidth,
         obstacleMinX: wall0.x - wall0.width / 2, obstacleMaxX: wall0.x + wall0.width / 2,
         fromX: s.x, fromTheta: s.theta, toX: s.x, toTheta: s.theta,
     )
-    let hit2 = Sweep.hitsWall(
-        wall: 2, angularHalfWidth: t.angularHalfWidth,
-        obstacleMinX: wall2.x - wall2.width / 2, obstacleMaxX: wall2.x + wall2.width / 2,
+    let hit1 = Sweep.hitsWall(
+        wall: 1, angularHalfWidth: t.angularHalfWidth,
+        obstacleMinX: wall1.x - wall1.width / 2, obstacleMaxX: wall1.x + wall1.width / 2,
         fromX: s.x, fromTheta: s.theta, toX: s.x, toTheta: s.theta,
     )
-    // Pa avstand exakt 1 kvartsvarv, utanfor bada vaggarnas 0,5+0,1-zon.
-    #expect(!hit0)
-    #expect(!hit2)
+    // Pa avstand exakt 0,5 kvartsvarv fran bada vaggarna, innanfor 0,5+0,1-zonen.
+    #expect(hit0)
+    #expect(hit1)
 }
 
 @Test func `fast rotation cannot tunnel through a wall obstacle`() {

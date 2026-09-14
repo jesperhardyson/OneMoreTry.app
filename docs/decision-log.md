@@ -281,3 +281,31 @@ medvetet för det här projektet, inte en revidering av regeln för framtida arb
 **Konsekvens:** väg 4 i föregående lista ("Skriv implementationsplanerna för den nya
 specen") är nu olåst. Tredje läget (tuben) och perspektivrenderaren byggs utan att
 mekaniken någonsin fun-testats på någon utom ägaren.
+
+## 2026-09-14 — Tubens orbital-hold-amplitud är 4x formeln i spec §11.1, inte en testbugg
+
+Under implementationen av `docs/superpowers/plans/2026-09-14-tube-mode-core.md` Task 2
+fyrade `orbital hold amplitude matches the analytic formula` med ett mätvärde exakt 4x
+det planerade `expectedAmplitude = halfPeriod² / (2 · flipDuration²)` — samma formel som
+`hoverAmplitudeMatchesTheAnalyticFormula`, med `h = 1`, precis som spec §11.1 föreskriver.
+
+**Orsaken är §3.5 självt, inte en integrationsbugg.** §3.5 medger redan att
+"Enkelriktningen bryter modellen... `downWall += 1` vänder dragriktningen först när
+väggen passerat figuren, alltså ungefär vartannat tap" — tapregeln är ett 4-lägesvarv
+(`downWall = (downWall + 1) % 4`), inte ett 2-lägesväxel som `gravityFlip`s binära
+tecken. Att komma tillbaka till samma relativa fas mot väggen tar därför 4 tap, inte 2:
+den naturliga svängningsperioden är `4 · halfPeriod`, dubbelt den period en
+2-lägesmodell skulle ge. Amplituden under bang-bang-acceleration skalar med periodens
+kvadrat (`alpha · T² / 4` för en godtycklig halveringsperiod `T`), så den dubbla
+perioden ger exakt 4x amplituden en 2-lägesmodell skulle förutsäga.
+
+**Beslut:** tapregeln (`(downWall + 1) % 4`) är korrekt och en genuin spec-mekanik —
+den ändras inte. Testformeln korrigerades till
+`expectedAmplitude = alphaMagnitude · halfPeriod²` (algebraiskt samma som
+`2 · halfPeriod² / flipDuration²`, den 4x-korrigerade slutna formen). Committat i
+`b73c656`.
+
+**Konsekvens:** spec §11.1s rad för detta test ("Samma formel som
+`hoverAmplitudeMatchesTheAnalyticFormula`, med `h = 1`. Om den inte gäller är det inte
+samma integration, och §3 är fel.") är föråldrad text och bör ändras till att namnge
+4x-faktorn explicit, annars pekar spec och testkod åt olika håll för nästa läsare.
