@@ -199,12 +199,22 @@ git commit -m "feat: add Angle module for tube-mode periodic math"
     let tapsPerSecond = 16.0 // val over tubens tröskel (~11,3/s), se spec §3.5
     let halfPeriod = 1 / tapsPerSecond
     let halfPeriodSteps = Int((halfPeriod / Simulator.dt).rounded())
-    let expectedAmplitude = halfPeriod * halfPeriod / (2 * t.flipDuration * t.flipDuration)
+    // `downWall` avancerar ett steg per tap (`(downWall+1)%4`), inte ett
+    // 2-vagsbyte — att komma tillbaka till samma relativa fas mot vaggen tar
+    // darfor 4 tap, inte 2. Den naturliga svangningsperioden ar `4*halfPeriod`,
+    // dubbelt den period en 2-lages-modell skulle ge. Amplituden under
+    // bang-bang-acceleration skalar med periodens kvadrat, sa den dubbla
+    // perioden ger exakt 4x amplituden en 2-lages-harledning skulle forutsaga
+    // (`halfPeriod^2 / (2*flipDuration^2)`). Se beslutsloggen 2026-09-14.
+    let expectedAmplitude = t.alphaMagnitude * halfPeriod * halfPeriod
 
+    // Startpunkt vid vila, symmetriskt intrade mot motsatt vagg — samma
+    // konfiguration som `opposite wall traverse`. Verifierad numeriskt att
+    // detta konvergerar till den stabila svangningen inom toleransen.
     var s = SimState.initial(tuning: t)
-    s.theta = 2
-    s.downWall = 3
-    s.vTheta = -t.alphaMagnitude * halfPeriod / 2
+    s.theta = 0
+    s.downWall = 2
+    s.vTheta = 0
 
     var lo = Double.infinity
     var hi = -Double.infinity
@@ -218,9 +228,6 @@ git commit -m "feat: add Angle module for tube-mode periodic math"
     }
 
     let measured = hi - lo
-    // Om detta inte konvergerar inom toleransen: kontrollera forst att fasen
-    // (start-`downWall`/`theta`/tecknet pa den seedade `vTheta`) motsvarar ett
-    // steady-state svangningslage — det ar amplituden som testas, inte fasen.
     #expect(abs(measured - expectedAmplitude) / expectedAmplitude < 0.05)
 }
 
@@ -332,14 +339,6 @@ In the existing `if flip { switch s.mode { ... } }` block inside `Simulator.step
 
 (`.up` is a placeholder direction — `Sign` has two cases and `downWall` has four, so the mapping is lossy by construction. The event only drives audio/haptic feedback today, which does not yet branch on direction for tube taps; a richer tube-specific event is deferred to the renderer/feedback deliverable, step 4/6 of spec §12.)
 
-Just below, capture `theta0` alongside the existing `x0`/`y0`:
-
-```swift
-        let x0 = s.x
-        let y0 = s.y
-        let theta0 = s.theta
-```
-
 Replace the following unconditional integration block:
 
 ```swift
@@ -392,7 +391,7 @@ with a switch over `s.mode` that keeps that exact block under `.gravityFlip, .im
 - [ ] **Step 4: Run tests to verify they pass**
 
 Run: `swift test --package-path Packages/OMTKit --filter TubeTests`
-Expected: PASS. If `orbital hold amplitude matches the analytic formula` doesn't converge, adjust the seed's `downWall`/sign of `vTheta` — the physics (acceleration magnitude, clamp) is exercised and locked by the other four tests in this task, so a phase mismatch in the hold test is a test-seeding issue, not an implementation bug.
+Expected: PASS.
 
 - [ ] **Step 5: Also run the full existing suite to confirm no regression**
 
@@ -561,6 +560,14 @@ In `Simulation.swift`, add one new trailing parameter to `Simulator.step`'s exis
         portals: [Portal] = [],
         wallObstacles: [WallObstacle] = [],
     ) -> StepResult {
+```
+
+This task is the first to read `theta` for a collision revert, so extend the existing `let x0 = s.x` / `let y0 = s.y` capture near the top of `Simulator.step` to also capture `theta0`:
+
+```swift
+        let x0 = s.x
+        let y0 = s.y
+        let theta0 = s.theta
 ```
 
 Add a second collision loop directly after the existing `for obstacle in obstacles { ... }` loop (same structure: sweep test, then die-and-revert-and-return-early on a hit — matching the existing loop's `s.alive = false; s.x = x0; s.y = y0; events.append(.died(...)); return StepResult(state: s, events: events)` pattern exactly, just for `theta` instead of `y`):
