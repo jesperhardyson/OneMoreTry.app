@@ -19,6 +19,9 @@ public enum ControlMode: Sendable, Hashable {
     /// Tap satter vertikal hastighet direkt. En integration istallet for tva,
     /// vilket ger exakt sqrt(2) ganger billigare svavande.
     case impulse
+    /// Figuren rör sig langs en sluten slingas omkrets istallet for att falla
+    /// mellan golv och tak. Se spec §3.
+    case tube
 }
 
 /// Trimkonstanter. Det justerbara vardet ar `flipFootprint` — hur langt figuren
@@ -63,6 +66,18 @@ public struct Tuning: Sendable {
     /// Avstandet figurens centrum faktiskt kan rora sig mellan ytorna.
     public var usableHeight: Double {
         channelHeight - characterHeight
+    }
+
+    /// Vinkelaccelerationens magnitud, sa att en kvarts varv fran vila tar
+    /// exakt `flipDuration`: `alpha = 2 / flipDuration^2`. Se spec §3.4.
+    public var alphaMagnitude: Double {
+        2 / (flipDuration * flipDuration)
+    }
+
+    /// Halva figurens vinkelutstracking, i kvartsvarv. Motsvarar
+    /// `characterHeight` i kanalen. Se spec §3.7.
+    public var angularHalfWidth: Double {
+        (characterHeight / 2) / channelHeight
     }
 
     /// Harledd sa att en korsning fran vila tar exakt `flipDuration`:
@@ -118,10 +133,14 @@ public struct SimState: Sendable {
     public var gravity: Sign
     public var alive: Bool
     public var mode: ControlMode
+    public var theta: Double
+    public var vTheta: Double
+    public var downWall: UInt8
 
     public init(
         step: UInt32, x: Double, y: Double, vy: Double,
         gravity: Sign, alive: Bool, mode: ControlMode = .gravityFlip,
+        theta: Double = 0, vTheta: Double = 0, downWall: UInt8 = 0,
     ) {
         self.step = step
         self.x = x
@@ -130,6 +149,9 @@ public struct SimState: Sendable {
         self.gravity = gravity
         self.alive = alive
         self.mode = mode
+        self.theta = theta
+        self.vTheta = vTheta
+        self.downWall = downWall
     }
 
     public static func initial(tuning: Tuning) -> SimState {
@@ -144,6 +166,19 @@ public enum Simulator {
     public static let stepsPerSecond: Double = 240
     public static let dt: Double = 1.0 / 240.0
 
+    /// Riktningen `theta` accelererar i for att na `downWall`. Se spec §3.1,
+    /// §4.2. Vid symmetriskt intrade (motsatt vagg) ger `Angle.wrappedDelta`
+    /// alltid -2, vilket redan faller igenom till `+1` nedan — fallet skrivs
+    /// trots det ut explicit sa att det inte ar en oavsiktlig konsekvens av
+    /// avrundningsregeln i `Angle.wrappedDelta`.
+    private static func tubeAccelerationDirection(theta: Double, downWall: UInt8) -> Double {
+        let d = Angle.wrappedDelta(theta, Double(downWall))
+        if d == -2 {
+            return 1
+        }
+        return d > 0 ? -1 : 1
+    }
+
     public static func step(
         _ state: SimState,
         tuning: Tuning,
@@ -151,6 +186,7 @@ public enum Simulator {
         holding: Bool = false,
         obstacles: [Obstacle] = [],
         portals: [Portal] = [],
+        wallObstacles: [WallObstacle] = [],
     ) -> StepResult {
         var s = state
         guard s.alive else { return StepResult(state: s, events: []) }
@@ -166,6 +202,9 @@ public enum Simulator {
                 // Hastigheten satts, inte adderas: det ar hela skillnaden.
                 s.vy = tuning.impulseSpeed
                 events.append(.flipped(step: s.step, direction: .up))
+            case .tube:
+                s.downWall = (s.downWall + 1) % 4
+                events.append(.flipped(step: s.step, direction: .up))
             }
         }
 
@@ -177,35 +216,109 @@ public enum Simulator {
         }
 
         let x0 = s.x
-        let y0 = s.y
+        var y0 = s.y
+        var theta0 = s.theta
 
-        s.vy += s.gravity.acceleration * tuning.gravityMagnitude * dt
-        s.y += s.vy * dt
-        s.x += tuning.scrollSpeed * dt
+        switch s.mode {
+        case .gravityFlip, .impulse:
+            s.vy += s.gravity.acceleration * tuning.gravityMagnitude * dt
+            s.y += s.vy * dt
+            s.x += tuning.scrollSpeed * dt
 
-        if s.y <= tuning.floorY {
-            s.y = tuning.floorY
-            s.vy = 0
-        } else if s.y >= tuning.ceilingY {
-            s.y = tuning.ceilingY
-            s.vy = 0
+            if s.y <= tuning.floorY {
+                s.y = tuning.floorY
+                s.vy = 0
+            } else if s.y >= tuning.ceilingY {
+                s.y = tuning.ceilingY
+                s.vy = 0
+            }
+        case .tube:
+            s.x += tuning.scrollSpeed * dt
+            Simulator.integrateTube(&s, tuning: tuning)
         }
 
         // Portalen passeras under steget; det nya laget galler fran nasta steg.
         for portal in portals where x0 <= portal.x && s.x > portal.x {
             guard s.mode != portal.mode else { continue }
-            s.mode = portal.mode
-            // Impulslaget forutsatter gravitation nedat. Utan det skulle ett tap
-            // gora motsatsen till vad spelaren forvantar sig direkt efter bytet.
+
+            if portal.mode == .tube {
+                // Kanal -> tub: y avbildas linjart pa theta ∈ [0, 2]. Se spec §4.
+                s.theta = Angle.wrap(2 * (s.y - tuning.floorY) / tuning.usableHeight)
+                s.vTheta = s.vy * 2 / tuning.usableHeight
+                s.downWall = 0
+                // Remappningen ar ett koordinathopp, inte rorelse: aterstall
+                // origo sa att kollisionssvepet nedan bara tacker den verkliga
+                // integrationen inom steget, inte hoppet. Se slutgranskningen
+                // 2026-09-14.
+                theta0 = s.theta
+            } else if s.mode == .tube {
+                // Tub -> kanal: theta avbildas linjart tillbaka. vagg 0 -> golv,
+                // vagg 2 -> tak, vagg 1 och 3 -> mitten. Se spec §4.
+                let folded = s.theta <= 2 ? s.theta : 4 - s.theta
+                let sign: Double = s.theta <= 2 ? 1 : -1
+                s.y = tuning.floorY + (folded / 2) * tuning.usableHeight
+                s.vy = s.vTheta * (tuning.usableHeight / 2) * sign
+                s.gravity = .down
+                y0 = s.y
+            }
+
             if portal.mode == .impulse {
                 s.gravity = .down
             }
+
+            s.mode = portal.mode
             events.append(.modeChanged(step: s.step, mode: portal.mode))
         }
 
         let hw = tuning.characterWidth / 2
         let hh = tuning.characterHeight / 2
 
+        if s.mode != .tube {
+            if Simulator.checkChannelObstacles(
+                &s, obstacles: obstacles, tuning: tuning,
+                x0: x0, y0: y0, hw: hw, hh: hh, events: &events,
+            ) {
+                return StepResult(state: s, events: events)
+            }
+        }
+
+        if s.mode == .tube {
+            if Simulator.checkWallObstacles(
+                &s, wallObstacles: wallObstacles, tuning: tuning,
+                x0: x0, theta0: theta0, hw: hw, events: &events,
+            ) {
+                return StepResult(state: s, events: events)
+            }
+        }
+
+        s.step += 1
+        return StepResult(state: s, events: events)
+    }
+
+    /// Tubintegrationsgrenen fran `step`, extraherad ren for lasbarhet och
+    /// funktionslangd — se `function_body_length` i .swiftlint.yml.
+    private static func integrateTube(_ s: inout SimState, tuning: Tuning) {
+        let direction = Simulator.tubeAccelerationDirection(theta: s.theta, downWall: s.downWall)
+        s.vTheta += direction * tuning.alphaMagnitude * dt
+        let advanced = Angle.wrap(s.theta + s.vTheta * dt)
+        let deltaAfter = Angle.wrappedDelta(advanced, Double(s.downWall))
+        // Klampar exakt pa vaggen om steget skulle passera den, precis
+        // som golv/tak-klampen ovan. Se spec §3.4.
+        if (direction > 0 && deltaAfter >= 0) || (direction < 0 && deltaAfter <= 0) {
+            s.theta = Double(s.downWall)
+            s.vTheta = 0
+        } else {
+            s.theta = advanced
+        }
+    }
+
+    /// Kanalens hinderloop fran `step`, extraherad ren for funktionslangd.
+    /// Returnerar `true` om figuren dog (och `s`/`events` da redan uppdaterade
+    /// pa samma satt som fore extraktionen).
+    private static func checkChannelObstacles(
+        _ s: inout SimState, obstacles: [Obstacle], tuning: Tuning,
+        x0: Double, y0: Double, hw: Double, hh: Double, events: inout [RunEvent],
+    ) -> Bool {
         for obstacle in obstacles {
             let raw = obstacle.box(channelHeight: tuning.channelHeight)
             let box = raw.expanded(byHalfWidth: hw, halfHeight: hh)
@@ -220,7 +333,7 @@ public enum Simulator {
                         cause: obstacle.surface == .floor ? .floorObstacle : .ceilingObstacle,
                     ),
                 )
-                return StepResult(state: s, events: events)
+                return true
             }
 
             // Near-miss nar figurens bakkant passerar hindrets bakkant: ett val
@@ -234,8 +347,32 @@ public enum Simulator {
                 }
             }
         }
+        return false
+    }
 
-        s.step += 1
-        return StepResult(state: s, events: events)
+    /// Tubens vaggkollisionsloop fran `step`, extraherad ren for
+    /// funktionslangd. Returnerar `true` om figuren dog.
+    private static func checkWallObstacles(
+        _ s: inout SimState, wallObstacles: [WallObstacle], tuning: Tuning,
+        x0: Double, theta0: Double, hw: Double, events: inout [RunEvent],
+    ) -> Bool {
+        for obstacle in wallObstacles {
+            let hit = Sweep.hitsWall(
+                wall: obstacle.wall,
+                angularHalfWidth: tuning.angularHalfWidth,
+                obstacleMinX: obstacle.x - obstacle.width / 2 - hw,
+                obstacleMaxX: obstacle.x + obstacle.width / 2 + hw,
+                fromX: x0, fromTheta: theta0,
+                toX: s.x, toTheta: s.theta,
+            )
+            if hit {
+                s.alive = false
+                s.x = x0
+                s.theta = theta0
+                events.append(.died(step: s.step, cause: .wallObstacle))
+                return true
+            }
+        }
+        return false
     }
 }

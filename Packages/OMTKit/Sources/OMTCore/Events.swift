@@ -4,6 +4,10 @@
 public enum DeathCause: Sendable, Equatable {
     case floorObstacle
     case ceilingObstacle
+    /// Ett hinder pa en av tubens fyra vaggar. Vaggarna ar symmetriska, sa
+    /// till skillnad fran golv/tak bar orsaken ingen ytterligare diagnostik
+    /// i att peka ut vilken av de fyra.
+    case wallObstacle
 }
 
 /// Allt utanfor simuleringen — ljud, haptik, rekord, senare analytics — lyssnar

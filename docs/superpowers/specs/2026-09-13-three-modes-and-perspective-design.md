@@ -595,7 +595,7 @@ Tubens tester speglar kanalens. Om påståendet i §3 är sant ska samma formler
 |---|---|
 | `aQuarterTurnFromRestTakesFlipDuration` | Avbildningen av `g = 2h/t²` till vinkelrymd |
 | `oppositeWallTraverseTakesSqrtTwoFlipDurations` | §3.4 — att `√2` är avsiktligt och inte en bugg |
-| `orbitalHoldAmplitudeMatchesTheAnalyticFormula` | **Samma formel som `hoverAmplitudeMatchesTheAnalyticFormula`, med `h = 1`.** Om den inte gäller är det inte samma integration, och §3 är fel. |
+| `orbitalHoldAmplitudeMatchesTheAnalyticFormula` | **4x `hoverAmplitudeMatchesTheAnalyticFormula`s formel, med `h = 1`** — `downWall`s 4-lägesvarv (§3.5) ger en naturlig period på `4 · halfPeriod` istället för kanalens `2 · halfPeriod`, och amplituden skalar med periodens kvadrat. Se `docs/decision-log.md` 2026-09-14. Om faktorn inte gäller är det inte samma integration, och §3 är fel. |
 | `orbitalHoldCollapsesBelowTheDirectionalThreshold` | §3.5 — att figuren cirkulerar under ~11,3 tap/s. Egenskapen, inte defekten. |
 | `thetaWrapIsExactInBothDirections` | §3.6 — inklusive det lilla negativa fallet som `+ 4.0` inte klarar |
 | `collisionWrapsAcrossWallZero` | §3.7 — en figur vid `theta = 3.9` träffar ett hinder på vägg 0 |
