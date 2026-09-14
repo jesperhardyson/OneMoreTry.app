@@ -19,6 +19,9 @@ public enum ControlMode: Sendable, Hashable {
     /// Tap satter vertikal hastighet direkt. En integration istallet for tva,
     /// vilket ger exakt sqrt(2) ganger billigare svavande.
     case impulse
+    /// Figuren rör sig langs en sluten slingas omkrets istallet for att falla
+    /// mellan golv och tak. Se spec §3.
+    case tube
 }
 
 /// Trimkonstanter. Det justerbara vardet ar `flipFootprint` — hur langt figuren
@@ -64,6 +67,14 @@ public struct Tuning: Sendable {
     public var usableHeight: Double {
         channelHeight - characterHeight
     }
+
+    /// Vinkelaccelerationens magnitud, sa att en kvarts varv fran vila tar
+    /// exakt `flipDuration`: `alpha = 2 / flipDuration^2`. Se spec §3.4.
+    public var alphaMagnitude: Double { 2 / (flipDuration * flipDuration) }
+
+    /// Halva figurens vinkelutstracking, i kvartsvarv. Motsvarar
+    /// `characterHeight` i kanalen. Se spec §3.7.
+    public var angularHalfWidth: Double { (characterHeight / 2) / channelHeight }
 
     /// Harledd sa att en korsning fran vila tar exakt `flipDuration`:
     /// h = 1/2 * g * t^2  =>  g = 2h/t^2
@@ -118,10 +129,14 @@ public struct SimState: Sendable {
     public var gravity: Sign
     public var alive: Bool
     public var mode: ControlMode
+    public var theta: Double
+    public var vTheta: Double
+    public var downWall: UInt8
 
     public init(
         step: UInt32, x: Double, y: Double, vy: Double,
         gravity: Sign, alive: Bool, mode: ControlMode = .gravityFlip,
+        theta: Double = 0, vTheta: Double = 0, downWall: UInt8 = 0,
     ) {
         self.step = step
         self.x = x
@@ -130,6 +145,9 @@ public struct SimState: Sendable {
         self.gravity = gravity
         self.alive = alive
         self.mode = mode
+        self.theta = theta
+        self.vTheta = vTheta
+        self.downWall = downWall
     }
 
     public static func initial(tuning: Tuning) -> SimState {
@@ -143,6 +161,19 @@ public struct SimState: Sendable {
 public enum Simulator {
     public static let stepsPerSecond: Double = 240
     public static let dt: Double = 1.0 / 240.0
+
+    /// Riktningen `theta` accelererar i for att na `downWall`. Se spec §3.1,
+    /// §4.2. Vid symmetriskt intrade (motsatt vagg) ger `Angle.wrappedDelta`
+    /// alltid -2, vilket redan faller igenom till `+1` nedan — fallet skrivs
+    /// trots det ut explicit sa att det inte ar en oavsiktlig konsekvens av
+    /// avrundningsregeln i `Angle.wrappedDelta`.
+    private static func tubeAccelerationDirection(theta: Double, downWall: UInt8) -> Double {
+        let d = Angle.wrappedDelta(theta, Double(downWall))
+        if d == -2 {
+            return 1
+        }
+        return d > 0 ? -1 : 1
+    }
 
     public static func step(
         _ state: SimState,
@@ -166,6 +197,9 @@ public enum Simulator {
                 // Hastigheten satts, inte adderas: det ar hela skillnaden.
                 s.vy = tuning.impulseSpeed
                 events.append(.flipped(step: s.step, direction: .up))
+            case .tube:
+                s.downWall = (s.downWall + 1) % 4
+                events.append(.flipped(step: s.step, direction: .up))
             }
         }
 
@@ -179,16 +213,33 @@ public enum Simulator {
         let x0 = s.x
         let y0 = s.y
 
-        s.vy += s.gravity.acceleration * tuning.gravityMagnitude * dt
-        s.y += s.vy * dt
-        s.x += tuning.scrollSpeed * dt
+        switch s.mode {
+        case .gravityFlip, .impulse:
+            s.vy += s.gravity.acceleration * tuning.gravityMagnitude * dt
+            s.y += s.vy * dt
+            s.x += tuning.scrollSpeed * dt
 
-        if s.y <= tuning.floorY {
-            s.y = tuning.floorY
-            s.vy = 0
-        } else if s.y >= tuning.ceilingY {
-            s.y = tuning.ceilingY
-            s.vy = 0
+            if s.y <= tuning.floorY {
+                s.y = tuning.floorY
+                s.vy = 0
+            } else if s.y >= tuning.ceilingY {
+                s.y = tuning.ceilingY
+                s.vy = 0
+            }
+        case .tube:
+            s.x += tuning.scrollSpeed * dt
+            let direction = Simulator.tubeAccelerationDirection(theta: s.theta, downWall: s.downWall)
+            s.vTheta += direction * tuning.alphaMagnitude * dt
+            let advanced = Angle.wrap(s.theta + s.vTheta * dt)
+            let deltaAfter = Angle.wrappedDelta(advanced, Double(s.downWall))
+            // Klampar exakt pa vaggen om steget skulle passera den, precis
+            // som golv/tak-klampen ovan. Se spec §3.4.
+            if (direction > 0 && deltaAfter >= 0) || (direction < 0 && deltaAfter <= 0) {
+                s.theta = Double(s.downWall)
+                s.vTheta = 0
+            } else {
+                s.theta = advanced
+            }
         }
 
         // Portalen passeras under steget; det nya laget galler fran nasta steg.
