@@ -258,4 +258,26 @@ xcrun devicectl device install app --device CBE41E7B-EEF5-5741-92FA-489E240C17C7
   "$(find .build/dd/Build/Products -name OneMoreTry.app -maxdepth 3 | head -1)"
 ```
 
-Telefonen måste vara upplåst för `process launch`.
+Telefonen måste vara upplåst för `process launch`. `find ... -name OneMoreTry.app`
+kan träffa `Debug-iphonesimulator` före `Debug-iphoneos` om båda finns i `.build/dd` —
+peka på `Debug-iphoneos/OneMoreTry.app` direkt, annars misslyckas installationen med
+en signaturverifieringsfel som inte nämner simulatorn.
+
+---
+
+## 2026-09-14 — Grinden avsiktligt hoppad över
+
+Ägaren testade M1-prototypen (gravitationsvänd, impuls, portaler) på egen enhet igen och
+tyckte den kändes bra, och bad därefter explicit att hoppa över de tre icke-byggarna:
+"skit sedan i tre testarna för grinden, vi kör på ändå."
+
+**Det här är inte grinden godkänd — det är grinden avstådd.** Samma person som byggde
+spelet är inte ett giltigt urval, av samma skäl som noterades 2026-09-13 (första passet):
+trimning är inneboende intressant för den som byggde den, oavsett om spelet är det för
+någon annan. `CLAUDE.md`s regel ("bygg inget som skulle kastas om mekaniken visar sig
+tråkig") är oförändrad som skriven arbetsregel; det här är ägaren som tar den risken
+medvetet för det här projektet, inte en revidering av regeln för framtida arbete.
+
+**Konsekvens:** väg 4 i föregående lista ("Skriv implementationsplanerna för den nya
+specen") är nu olåst. Tredje läget (tuben) och perspektivrenderaren byggs utan att
+mekaniken någonsin fun-testats på någon utom ägaren.
