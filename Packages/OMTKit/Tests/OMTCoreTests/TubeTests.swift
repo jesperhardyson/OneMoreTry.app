@@ -1,5 +1,5 @@
-import Testing
 @testable import OMTCore
+import Testing
 
 @Test func `theta wrap is exact in both directions`() {
     #expect(Angle.wrap(0.5) == 0.5)
@@ -36,7 +36,7 @@ import Testing
     var s = SimState.initial(tuning: t)
     s.downWall = 1
 
-    while s.theta < 1, s.step < 10_000 {
+    while s.theta < 1, s.step < 10000 {
         s = Simulator.step(s, tuning: t, flip: false).state
     }
 
@@ -51,7 +51,7 @@ import Testing
     var s = SimState.initial(tuning: t)
     s.downWall = 2 // motsatt vagg fran theta = 0: symmetriskt intrade
 
-    while s.theta < 2, s.step < 10_000 {
+    while s.theta < 2, s.step < 10000 {
         s = Simulator.step(s, tuning: t, flip: false).state
     }
 
@@ -145,28 +145,63 @@ import Testing
     #expect(result.events.contains(.died(step: result.state.step, cause: .wallObstacle)))
 }
 
-@Test func `corner overlaps both adjacent walls`() {
+@Test func `far side of the tube is never hit`() {
+    // Slutgranskning 2026-09-14: `hitsWall` wrappade forut d0 och d1 var for
+    // sig mot vaggen. `Angle.wrappedDelta` ar diskontinuerlig exakt vid
+    // vaggens antipod (theta = 2 for vagg 0): en figur som korsar den punkten
+    // under ett steg fick d0 ≈ +1.999 men d1 ≈ -2.0 (independent wrap), och
+    // sveptestet interpolerade da ett segment pa nara 4 kvartsvarv — rakt
+    // igenom den riktiga traffzonen [-0.6, 0.6] — trots att figuren i
+    // verkligheten aldrig var narmare vagg 0 an sin egen antipod.
+    //
+    // Testet ror figuren fran strax under den motsatta vaggen (vagg 2, som
+    // geometriskt AR vagg 0:s antipod) och later den landa exakt pa vagg 2 i
+    // ett enda integrationssteg, med ett hinder pa vagg 0. En full cirkulation
+    // skulle ocksa passera vagg 0:s egen, riktiga traffzon (en korrekt dod,
+    // oberoende av buggen) — det har testet isolerar darfor just antipod-
+    // korsningen istallet, som ar den punkt buggen paverkar.
     var t = Tuning.reference
     t.mode = .tube
     var s = SimState.initial(tuning: t)
-    s.theta = 1.0 // exakt pa vagg 1: bade vagg 0 och vagg 2 ligger 1 kvartsvarv bort
-    s.downWall = 1
+    s.theta = Angle.wrap(1.999) // strax under vagg 2 = vagg 0:s antipod
+    s.vTheta = 10 // tillrackligt for att steget ska na/passera vagg 2
+    s.downWall = 2
     let wall0 = WallObstacle(wall: 0, x: s.x, width: 4)
-    let wall2 = WallObstacle(wall: 2, x: s.x, width: 4)
+
+    let result = Simulator.step(s, tuning: t, flip: false, wallObstacles: [wall0])
+
+    // Klampen mot malvaggen bekraftar att figuren verkligen korsade/landade
+    // pa antipoden under steget — annars testar vi inte det vi tror.
+    #expect(result.state.theta == 2)
+    #expect(result.state.alive)
+}
+
+@Test func `corner overlaps both adjacent walls`() {
+    // Korrigerad 2026-09-14 efter fardigbranchens slutgranskning: den ursprungliga
+    // versionen placerade figuren pa en vaggcentrum (theta = 1.0), inte i ett horn,
+    // och lasta darmed den motsatta egenskapen av den spec §3.7 namnger. Se
+    // docs/decision-log.md 2026-09-14.
+    var t = Tuning.reference
+    t.mode = .tube
+    var s = SimState.initial(tuning: t)
+    s.theta = 0.5 // hornet mellan vagg 0 och vagg 1: bada ligger inom threshold 0,6
+    s.downWall = 0
+    let wall0 = WallObstacle(wall: 0, x: s.x, width: 4)
+    let wall1 = WallObstacle(wall: 1, x: s.x, width: 4)
 
     let hit0 = Sweep.hitsWall(
         wall: 0, angularHalfWidth: t.angularHalfWidth,
         obstacleMinX: wall0.x - wall0.width / 2, obstacleMaxX: wall0.x + wall0.width / 2,
         fromX: s.x, fromTheta: s.theta, toX: s.x, toTheta: s.theta,
     )
-    let hit2 = Sweep.hitsWall(
-        wall: 2, angularHalfWidth: t.angularHalfWidth,
-        obstacleMinX: wall2.x - wall2.width / 2, obstacleMaxX: wall2.x + wall2.width / 2,
+    let hit1 = Sweep.hitsWall(
+        wall: 1, angularHalfWidth: t.angularHalfWidth,
+        obstacleMinX: wall1.x - wall1.width / 2, obstacleMaxX: wall1.x + wall1.width / 2,
         fromX: s.x, fromTheta: s.theta, toX: s.x, toTheta: s.theta,
     )
-    // Pa avstand exakt 1 kvartsvarv, utanfor bada vaggarnas 0,5+0,1-zon.
-    #expect(!hit0)
-    #expect(!hit2)
+    // Pa avstand exakt 0,5 kvartsvarv fran bada vaggarna, innanfor 0,5+0,1-zonen.
+    #expect(hit0)
+    #expect(hit1)
 }
 
 @Test func `fast rotation cannot tunnel through a wall obstacle`() {

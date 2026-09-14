@@ -35,6 +35,10 @@ public struct Obstacle: Sendable {
 /// ur `Tuning.angularHalfWidth`, inte ur hindret.
 public struct WallObstacle: Sendable {
     public var wall: UInt8
+    /// Horisontella centrum i varldsenheter — till skillnad fran `Obstacle.x`,
+    /// som ar den vanstra kanten. Boxen ar `[x - width/2, x + width/2]`.
+    /// Konventionerna skiljer sig avsiktligt mellan kanal och tub; anta inte
+    /// att de matchar.
     public var x: Double
     public var width: Double
 
@@ -95,8 +99,15 @@ enum Sweep {
         toTheta theta1: Double,
     ) -> Bool {
         let threshold = 0.5 + angularHalfWidth
+        // d1 unwraps relativt d0, inte oberoende mot vaggen: `wrappedDelta` ar
+        // diskontinuerlig vid vaggens antipod (d = +-2). Tva oberoende wrap
+        // kan hoppa fran +1.99 till -1.99 over ett steg som korsar antipoden,
+        // och den interpolerade sveptestssegmenten skulle da lopa genom hela
+        // [-2, 2] — rakt genom traffzonen — istallet for att bara passera
+        // antipoden, som ar den punkt langst fran vaggen. Se slutgranskningen
+        // 2026-09-14.
         let d0 = Angle.wrappedDelta(theta0, Double(wall))
-        let d1 = Angle.wrappedDelta(theta1, Double(wall))
+        let d1 = d0 + Angle.wrappedDelta(theta1, theta0)
 
         var tMin = 0.0
         var tMax = 1.0
