@@ -29,6 +29,22 @@ public struct Obstacle: Sendable {
     }
 }
 
+/// Ett hinder fast vid en av tubens fyra vaggar. Motsvarar `Obstacle` for
+/// kanalen, men indexerar vagg istallet for golv/tak — se spec §3.7. Har
+/// ingen egen "hojd": traffzonen ar en fast vinkelbredd runt vaggen, harledd
+/// ur `Tuning.angularHalfWidth`, inte ur hindret.
+public struct WallObstacle: Sendable {
+    public var wall: UInt8
+    public var x: Double
+    public var width: Double
+
+    public init(wall: UInt8, x: Double, width: Double) {
+        self.wall = wall
+        self.x = x
+        self.width = width
+    }
+}
+
 struct AABB {
     var minX, maxX, minY, maxY: Double
 
@@ -59,6 +75,35 @@ enum Sweep {
             return false
         }
         guard slab(origin: y0, delta: dy, lo: box.minY, hi: box.maxY, &tMin, &tMax) else {
+            return false
+        }
+        return tMin <= tMax
+    }
+
+    /// Motsvarar `hits`, men for tubens (x, theta) istallet for kanalens
+    /// (x, y). `slab` ateranvands oforandrat for x, som inte ar periodisk;
+    /// theta jamfors mot den wrappade differensen till vaggen istallet for
+    /// ett fast intervall — se spec §3.7.
+    static func hitsWall(
+        wall: UInt8,
+        angularHalfWidth: Double,
+        obstacleMinX: Double,
+        obstacleMaxX: Double,
+        fromX x0: Double,
+        fromTheta theta0: Double,
+        toX x1: Double,
+        toTheta theta1: Double,
+    ) -> Bool {
+        let threshold = 0.5 + angularHalfWidth
+        let d0 = Angle.wrappedDelta(theta0, Double(wall))
+        let d1 = Angle.wrappedDelta(theta1, Double(wall))
+
+        var tMin = 0.0
+        var tMax = 1.0
+        guard slab(origin: x0, delta: x1 - x0, lo: obstacleMinX, hi: obstacleMaxX, &tMin, &tMax) else {
+            return false
+        }
+        guard slab(origin: d0, delta: d1 - d0, lo: -threshold, hi: threshold, &tMin, &tMax) else {
             return false
         }
         return tMin <= tMax

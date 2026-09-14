@@ -182,6 +182,7 @@ public enum Simulator {
         holding: Bool = false,
         obstacles: [Obstacle] = [],
         portals: [Portal] = [],
+        wallObstacles: [WallObstacle] = [],
     ) -> StepResult {
         var s = state
         guard s.alive else { return StepResult(state: s, events: []) }
@@ -212,6 +213,7 @@ public enum Simulator {
 
         let x0 = s.x
         let y0 = s.y
+        let theta0 = s.theta
 
         switch s.mode {
         case .gravityFlip, .impulse:
@@ -283,6 +285,24 @@ public enum Simulator {
                 if clearance >= 0, clearance <= tuning.nearMissClearance {
                     events.append(.nearMiss(step: s.step, clearance: clearance))
                 }
+            }
+        }
+
+        for obstacle in wallObstacles {
+            let hit = Sweep.hitsWall(
+                wall: obstacle.wall,
+                angularHalfWidth: tuning.angularHalfWidth,
+                obstacleMinX: obstacle.x - obstacle.width / 2,
+                obstacleMaxX: obstacle.x + obstacle.width / 2,
+                fromX: x0, fromTheta: theta0,
+                toX: s.x, toTheta: s.theta,
+            )
+            if hit {
+                s.alive = false
+                s.x = x0
+                s.theta = theta0
+                events.append(.died(step: s.step, cause: .wallObstacle))
+                return StepResult(state: s, events: events)
             }
         }
 

@@ -131,3 +131,53 @@ import Testing
     // (< 4). Cirkulation varvar hela slingan flera ganger.
     #expect(totalTravel > 8)
 }
+
+@Test func `collision wraps across wall zero`() {
+    var t = Tuning.reference
+    t.mode = .tube
+    var s = SimState.initial(tuning: t)
+    s.theta = Angle.wrap(-0.02) // precis under vagg 0
+    s.downWall = 0
+    let wall0 = WallObstacle(wall: 0, x: s.x, width: 4)
+
+    let result = Simulator.step(s, tuning: t, flip: false, wallObstacles: [wall0])
+    #expect(!result.state.alive)
+    #expect(result.events.contains(.died(step: result.state.step, cause: .wallObstacle)))
+}
+
+@Test func `corner overlaps both adjacent walls`() {
+    var t = Tuning.reference
+    t.mode = .tube
+    var s = SimState.initial(tuning: t)
+    s.theta = 1.0 // exakt pa vagg 1: bade vagg 0 och vagg 2 ligger 1 kvartsvarv bort
+    s.downWall = 1
+    let wall0 = WallObstacle(wall: 0, x: s.x, width: 4)
+    let wall2 = WallObstacle(wall: 2, x: s.x, width: 4)
+
+    let hit0 = Sweep.hitsWall(
+        wall: 0, angularHalfWidth: t.angularHalfWidth,
+        obstacleMinX: wall0.x - wall0.width / 2, obstacleMaxX: wall0.x + wall0.width / 2,
+        fromX: s.x, fromTheta: s.theta, toX: s.x, toTheta: s.theta,
+    )
+    let hit2 = Sweep.hitsWall(
+        wall: 2, angularHalfWidth: t.angularHalfWidth,
+        obstacleMinX: wall2.x - wall2.width / 2, obstacleMaxX: wall2.x + wall2.width / 2,
+        fromX: s.x, fromTheta: s.theta, toX: s.x, toTheta: s.theta,
+    )
+    // Pa avstand exakt 1 kvartsvarv, utanfor bada vaggarnas 0,5+0,1-zon.
+    #expect(!hit0)
+    #expect(!hit2)
+}
+
+@Test func `fast rotation cannot tunnel through a wall obstacle`() {
+    var t = Tuning.reference
+    t.mode = .tube
+    var s = SimState.initial(tuning: t)
+    s.theta = Angle.wrap(-0.03)
+    s.downWall = 1 // accelererar bort fran vagg 0, mot vagg 1
+    s.vTheta = 12.8 // nara maxfarten (~12,86 kvartsvarv/s), se spec §3.8
+    let wall0 = WallObstacle(wall: 0, x: s.x, width: 4)
+
+    let result = Simulator.step(s, tuning: t, flip: false, wallObstacles: [wall0])
+    #expect(!result.state.alive)
+}
