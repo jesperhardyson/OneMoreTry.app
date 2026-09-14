@@ -247,12 +247,27 @@ public enum Simulator {
         // Portalen passeras under steget; det nya laget galler fran nasta steg.
         for portal in portals where x0 <= portal.x && s.x > portal.x {
             guard s.mode != portal.mode else { continue }
-            s.mode = portal.mode
-            // Impulslaget forutsatter gravitation nedat. Utan det skulle ett tap
-            // gora motsatsen till vad spelaren forvantar sig direkt efter bytet.
+
+            if portal.mode == .tube {
+                // Kanal -> tub: y avbildas linjart pa theta ∈ [0, 2]. Se spec §4.
+                s.theta = Angle.wrap(2 * (s.y - tuning.floorY) / tuning.usableHeight)
+                s.vTheta = s.vy * 2 / tuning.usableHeight
+                s.downWall = 0
+            } else if s.mode == .tube {
+                // Tub -> kanal: theta avbildas linjart tillbaka. vagg 0 -> golv,
+                // vagg 2 -> tak, vagg 1 och 3 -> mitten. Se spec §4.
+                let folded = s.theta <= 2 ? s.theta : 4 - s.theta
+                let sign: Double = s.theta <= 2 ? 1 : -1
+                s.y = tuning.floorY + (folded / 2) * tuning.usableHeight
+                s.vy = s.vTheta * (tuning.usableHeight / 2) * sign
+                s.gravity = .down
+            }
+
             if portal.mode == .impulse {
                 s.gravity = .down
             }
+
+            s.mode = portal.mode
             events.append(.modeChanged(step: s.step, mode: portal.mode))
         }
 
