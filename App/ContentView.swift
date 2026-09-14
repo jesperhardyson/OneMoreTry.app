@@ -253,6 +253,8 @@ struct ContentView: View {
                 HStack {
                     Text("hastighet \(Int(model.tuning.scrollSpeed))")
                     Spacer()
+                    Text("\(model.obstacles.count) hinder")
+                    Spacer()
                     Text("\(Int(model.frameRate)) fps")
                 }
                 .font(.system(size: 11, design: .monospaced))
